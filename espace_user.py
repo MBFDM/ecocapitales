@@ -4,7 +4,7 @@ from mysql.connector import Error
 import hashlib
 import uuid
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 import os
 from streamlit_option_menu import option_menu
@@ -707,7 +707,7 @@ def auth_page():
         with tab1:
             with st.form("login_form"):
                 email = st.text_input("Email", placeholder="exemple@email.com")
-                password = st.text_input("Mot de passe", type="password")
+                password = st.text_input("Mot de passe", type="password", placeholder="..........")
                 
                 if st.form_submit_button("Se connecter", use_container_width=True):
                     if email and password:
@@ -799,6 +799,9 @@ def dashboard_page():
 # ============================================================
 # PAGE DEMANDE AVI
 # ============================================================
+# ============================================================
+# PAGE DEMANDE AVI
+# ============================================================
 def avi_request_page():
     set_custom_theme()
     
@@ -817,89 +820,174 @@ def avi_request_page():
     
     st.progress(step / 3)
     
+    # Étape 1
     if step == 1:
-        with st.container():
-            st.markdown("### 📝 Informations Personnelles")
-            
+        st.markdown('<div class="card-premium animate-fadeInLeft">', unsafe_allow_html=True)
+        st.markdown("### 📝 Informations Personnelles")
+        
+        # Formulaire avec des clés uniques
+        with st.form(key="avi_form_step1"):
             col1, col2 = st.columns(2)
             with col1:
-                last_name = st.text_input("Nom *")
-                birth_date = st.date_input("Date de naissance *")
-                nationality = st.text_input("Nationalité *")
+                last_name = st.text_input("Nom *", placeholder="Votre nom de famille", key="avi_last_name")
+                birth_date = st.date_input("Date de naissance *", 
+                                          value=datetime.now() - timedelta(days=365*20), 
+                                          max_value=datetime.now(), 
+                                          key="avi_birth_date")
+                nationality = st.text_input("Nationalité *", placeholder="Ex: Congolaise", key="avi_nationality")
             with col2:
-                first_name = st.text_input("Prénom(s) *")
-                birth_place = st.text_input("Lieu de naissance *")
+                first_name = st.text_input("Prénom(s) *", placeholder="Votre prénom", key="avi_first_name")
+                birth_place = st.text_input("Lieu de naissance *", placeholder="Ville de naissance", key="avi_birth_place")
             
             st.markdown("### 🏠 Adresse")
             col1, col2 = st.columns(2)
             with col1:
-                address = st.text_input("Adresse *")
-                postal_code = st.text_input("Code postal *")
+                address = st.text_input("Adresse *", placeholder="Votre adresse complète", key="avi_address")
+                postal_code = st.text_input("Code postal *", placeholder="Code postal", key="avi_postal_code")
             with col2:
-                city = st.text_input("Ville *")
-                country = st.selectbox("Pays *", ["Congo Brazzaville", "Chine", "Maroc", "Gabon", "Turquie"])
+                city = st.text_input("Ville *", placeholder="Votre ville", key="avi_city")
+                country = st.selectbox("Pays *", 
+                                      ["Congo Brazzaville", "Chine", "Maroc", "Gabon", "Turquie", "Autre"], 
+                                      index=0,
+                                      key="avi_country")
             
-            if st.button("Suivant ➡️", use_container_width=True):
-                if all([last_name, first_name, birth_date, birth_place, nationality, address, postal_code, city, country]):
+            # Bouton dans le formulaire
+            submitted = st.form_submit_button("Suivant ➡️", use_container_width=True)
+            
+            if submitted:
+                # Récupérer les valeurs depuis st.session_state
+                last_name_val = st.session_state.get("avi_last_name", "")
+                first_name_val = st.session_state.get("avi_first_name", "")
+                birth_place_val = st.session_state.get("avi_birth_place", "")
+                nationality_val = st.session_state.get("avi_nationality", "")
+                address_val = st.session_state.get("avi_address", "")
+                postal_code_val = st.session_state.get("avi_postal_code", "")
+                city_val = st.session_state.get("avi_city", "")
+                country_val = st.session_state.get("avi_country", "Congo Brazzaville")
+                birth_date_val = st.session_state.get("avi_birth_date", datetime.now())
+                
+                # Vérification
+                missing_fields = []
+                if not last_name_val or last_name_val.strip() == "":
+                    missing_fields.append("Nom")
+                if not first_name_val or first_name_val.strip() == "":
+                    missing_fields.append("Prénom")
+                if not birth_place_val or birth_place_val.strip() == "":
+                    missing_fields.append("Lieu de naissance")
+                if not nationality_val or nationality_val.strip() == "":
+                    missing_fields.append("Nationalité")
+                if not address_val or address_val.strip() == "":
+                    missing_fields.append("Adresse")
+                if not postal_code_val or postal_code_val.strip() == "":
+                    missing_fields.append("Code postal")
+                if not city_val or city_val.strip() == "":
+                    missing_fields.append("Ville")
+                
+                if missing_fields:
+                    st.error(f"⚠️ Champs manquants : {', '.join(missing_fields)}")
+                else:
                     st.session_state.avi_data = {
-                        'last_name': last_name, 'first_name': first_name,
-                        'birth_date': str(birth_date), 'birth_place': birth_place,
-                        'nationality': nationality, 'address': address,
-                        'postal_code': postal_code, 'city': city, 'country': country
+                        'last_name': last_name_val.strip(),
+                        'first_name': first_name_val.strip(),
+                        'birth_date': birth_date_val.strftime('%Y-%m-%d'),
+                        'birth_place': birth_place_val.strip(),
+                        'nationality': nationality_val.strip(),
+                        'address': address_val.strip(),
+                        'postal_code': postal_code_val.strip(),
+                        'city': city_val.strip(),
+                        'country': country_val
                     }
                     st.session_state.avi_step = 2
                     st.rerun()
-                else:
-                    st.error("Veuillez remplir tous les champs")
     
+    # Étape 2
     elif step == 2:
         with st.container():
             st.markdown("### 📎 Pièces Justificatives")
             
-            identity_doc = st.file_uploader("Pièce d'identité *", type=['jpg','jpeg','png','pdf'])
-            avi_amount = st.text_input("Montant AVI *", placeholder="500000 XAF")
-            consent = st.checkbox("Je certifie l'exactitude des informations *")
-            
-            col1, col2, col3 = st.columns([1, 1, 1])
-            if col1.button("⬅️ Précédent"):
-                st.session_state.avi_step = 1
-                st.rerun()
-            if col3.button("Suivant ➡️"):
-                if identity_doc and avi_amount and consent:
-                    db.save_document(st.session_state.user['id'], identity_doc.name, identity_doc.read(), identity_doc.type)
-                    st.session_state.avi_data['avi_amount'] = avi_amount
-                    st.session_state.avi_step = 3
+            with st.form(key="avi_form_step2"):
+                identity_doc = st.file_uploader("Pièce d'identité *", type=['jpg','jpeg','png','pdf'], key="avi_identity_doc")
+                avi_amount = st.text_input("Montant AVI *", placeholder="500000 XAF", key="avi_amount")
+                consent = st.checkbox("Je certifie l'exactitude des informations *", key="avi_consent")
+                
+                col1, col2, col3 = st.columns([1, 1, 1])
+                with col1:
+                    prev_clicked = st.form_submit_button("⬅️ Précédent")
+                with col3:
+                    next_clicked = st.form_submit_button("Suivant ➡️")
+                
+                if prev_clicked:
+                    st.session_state.avi_step = 1
                     st.rerun()
-                else:
-                    st.error("Veuillez remplir tous les champs")
+                
+                if next_clicked:
+                    avi_amount_val = st.session_state.get("avi_amount", "")
+                    identity_doc_val = st.session_state.get("avi_identity_doc", None)
+                    consent_val = st.session_state.get("avi_consent", False)
+                    
+                    if identity_doc_val and avi_amount_val and consent_val:
+                        # Lire le fichier
+                        file_data = identity_doc_val.read()
+                        db.save_document(st.session_state.user['id'], identity_doc_val.name, file_data, identity_doc_val.type)
+                        st.session_state.avi_data['avi_amount'] = avi_amount_val
+                        st.session_state.avi_step = 3
+                        st.rerun()
+                    else:
+                        st.error("Veuillez remplir tous les champs")
     
+    # Étape 3
     elif step == 3:
         with st.container():
             st.markdown("### ✅ Validation Finale")
             
             col1, col2 = st.columns(2)
             with col1:
-                st.write(f"**Nom:** {st.session_state.avi_data.get('first_name')} {st.session_state.avi_data.get('last_name')}")
-                st.write(f"**Date naissance:** {st.session_state.avi_data.get('birth_date')}")
+                st.write(f"**Nom:** {st.session_state.avi_data.get('first_name', '')} {st.session_state.avi_data.get('last_name', '')}")
+                st.write(f"**Date naissance:** {st.session_state.avi_data.get('birth_date', '')}")
+                st.write(f"**Lieu naissance:** {st.session_state.avi_data.get('birth_place', '')}")
+                st.write(f"**Nationalité:** {st.session_state.avi_data.get('nationality', '')}")
             with col2:
-                st.write(f"**Adresse:** {st.session_state.avi_data.get('address')}")
-                st.write(f"**Montant:** {st.session_state.avi_data.get('avi_amount')}")
+                st.write(f"**Adresse:** {st.session_state.avi_data.get('address', '')}")
+                st.write(f"**Code postal:** {st.session_state.avi_data.get('postal_code', '')}")
+                st.write(f"**Ville:** {st.session_state.avi_data.get('city', '')}")
+                st.write(f"**Pays:** {st.session_state.avi_data.get('country', '')}")
+                st.write(f"**Montant:** {st.session_state.avi_data.get('avi_amount', '')}")
             
-            final_consent = st.checkbox("Je confirme les informations")
-            
-            col1, col2, col3 = st.columns([1, 1, 1])
-            if col1.button("⬅️ Précédent"):
-                st.session_state.avi_step = 2
-                st.rerun()
-            if col3.button("📤 Soumettre"):
-                if final_consent:
-                    ok, ref = db.create_avi_request(st.session_state.user['id'], st.session_state.user['email'], st.session_state.avi_data)
-                    if ok:
-                        st.success(f"Demande {ref} soumise avec succès !")
-                        st.session_state.avi_step = 1
-                        st.session_state.avi_data = {}
+            with st.form(key="avi_form_step3"):
+                final_consent = st.checkbox("Je confirme les informations", key="avi_final_consent")
+                
+                col1, col2, col3 = st.columns([1, 1, 1])
+                with col1:
+                    prev_clicked = st.form_submit_button("⬅️ Précédent")
+                with col3:
+                    submit_clicked = st.form_submit_button("📤 Soumettre")
+                
+                if prev_clicked:
+                    st.session_state.avi_step = 2
+                    st.rerun()
+                
+                if submit_clicked:
+                    if final_consent:
+                        ok, ref = db.create_avi_request(st.session_state.user['id'], st.session_state.user['email'], st.session_state.avi_data)
+                        if ok:
+                            st.success(f"✅ Demande {ref} soumise avec succès !")
+                            st.balloons()
+                            # Réinitialiser
+                            st.session_state.avi_step = 1
+                            st.session_state.avi_data = {}
+                            # Nettoyer les clés
+                            keys_to_clear = ["avi_last_name", "avi_first_name", "avi_birth_place", "avi_nationality", 
+                                            "avi_address", "avi_postal_code", "avi_city", "avi_birth_date", "avi_country",
+                                            "avi_amount", "avi_identity_doc", "avi_consent", "avi_final_consent"]
+                            for key in keys_to_clear:
+                                if key in st.session_state:
+                                    del st.session_state[key]
+                            st.rerun()
+                        else:
+                            st.error(f"❌ Erreur: {ref}")
                     else:
-                        st.error(f"Erreur: {ref}")
+                        st.error("⚠️ Veuillez confirmer les informations")
+
 
 # ============================================================
 # PAGE MES AVI (DESIGN AMÉLIORÉ) - VERSION COMPLÈTE
@@ -972,8 +1060,6 @@ def my_avi_page():
     if not user_avis:
         st.info("📭 Aucune attestation AVI n'a encore été générée pour vous")
     else:
-        from fpdf import FPDF
-        from num2words import num2words
         import qrcode
         from io import BytesIO
         from PIL import Image
