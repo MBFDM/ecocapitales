@@ -604,7 +604,25 @@ class Database:
             return False, str(e)
 
     def get_user_avis(self, user_id):
+        """Récupère uniquement les AVI associées à l'utilisateur connecté"""
         try:
+            # 1. Récupérer les informations de l'utilisateur
+            self.cursor.execute('''
+            SELECT id, first_name, last_name, email FROM utilisateurs WHERE id = %s
+            ''', (user_id,))
+            user = self.cursor.fetchone()
+            
+            if not user:
+                return []
+            
+            user_first = user.get('first_name', '')
+            user_last = user.get('last_name', '')
+            user_email = user.get('email', '')
+            
+            print(f"Recherche AVI pour: {user_first} {user_last} ({user_email})")
+            
+            # 2. Récupérer les AVI qui correspondent à cet utilisateur
+            # On cherche dans nom_complet ou via email
             self.cursor.execute('''
             SELECT 
                 reference,
@@ -621,10 +639,22 @@ class Database:
                 commentaires,
                 created_at
             FROM avis
+            WHERE nom_complet LIKE %s 
+               OR nom_complet LIKE %s
+               OR nom_complet LIKE %s
             ORDER BY date_creation DESC
-            ''')
-            return self.cursor.fetchall()
+            ''', (f'%{user_first}%', f'%{user_last}%', f'%{user_first} {user_last}%'))
+            
+            results = self.cursor.fetchall()
+            
+            print(f"AVI trouvées: {len(results)}")
+            for r in results:
+                print(f"  - {r.get('reference')}: {r.get('nom_complet')}")
+            
+            return results
+            
         except Error as e:
+            print(f"Erreur get_user_avis: {e}")
             return []
 
 # ============================================================
@@ -658,7 +688,7 @@ def auth_page():
     
     st.markdown("""
     <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #4a6fa5, #166088); border-radius: 20px; margin-bottom: 2rem;">
-        <h1 style="color: white; font-size: 2.5rem;">🏦 Eco Capital</h1>
+        <h1 style="color: white; font-size: 2.5rem;">EcoCapital</h1>
         <p style="color: rgba(255,255,255,0.9);">Votre Partenaire Financier de Confiance</p>
     </div>
     """, unsafe_allow_html=True)
@@ -672,7 +702,7 @@ def auth_page():
     with col2:
         st.markdown('<div class="login-container">', unsafe_allow_html=True)
         
-        tab1, tab2 = st.tabs(["🔑 Connexion", "📝 Inscription"])
+        tab1, tab2 = st.tabs(["Connexion", "Inscription"])
         
         with tab1:
             with st.form("login_form"):
@@ -689,6 +719,9 @@ def auth_page():
                             st.rerun()
                         else:
                             st.error("Email ou mot de passe incorrect")
+
+                # Bouton de lien
+                st.page_link("https://ecocapitale-bm.streamlit.app/", label="EcoCapital")                     
         
         with tab2:
             with st.form("register_form"):
