@@ -284,25 +284,69 @@ class Database:
         self._fix_and_create_tables()
 
     def _connect(self):
-        """Connexion à MySQL"""
+        """Connexion à MySQL avec timeout configurable"""
+        max_retries = 3
+        retry_delay = 2
+        
+        for attempt in range(max_retries):
+            try:
+                self.connection = mysql.connector.connect(
+                    host='ecocapital-mbfdm.c.aivencloud.com',
+                    user='avnadmin',
+                    password='AVNS_3a2plzaevzttmJ4Tcs9',
+                    database='ecocapital',
+                    port=14431,
+                    connect_timeout=30,
+                    buffered=True,
+                    charset='utf8mb4',
+                    collation='utf8mb4_unicode_ci',
+                    autocommit=False,
+                    pool_reset_session=True
+                )
+                self.cursor = self.connection.cursor(dictionary=True)
+                
+                # Configurer le timeout de session
+                self.cursor.execute("SET SESSION wait_timeout = 28800")
+                self.cursor.execute("SET SESSION interactive_timeout = 28800")
+                
+                # Tester la connexion
+                self.cursor.execute("SELECT 1")
+                print("✅ Connexion MySQL réussie")
+                return
+                
+            except Error as e:
+                print(f"Tentative {attempt + 1}/{max_retries} échouée: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                else:
+                    st.error(f"❌ Erreur de connexion MySQL : {e}")
+                    st.stop()
+
+    def _ensure_connection(self):
+        """Vérifie et rétablit la connexion si nécessaire"""
         try:
-            self.connection = mysql.connector.connect(
-                host='ecocapital-mbfdm.c.aivencloud.com',
-                user='avnadmin',
-                password='AVNS_3a2plzaevzttmJ4Tcs9',
-                database='ecocapital',
-                port=14431,
-                connect_timeout=30,
-                buffered=True,
-                charset='utf8mb4',
-                collation='utf8mb4_unicode_ci'
-            )
-            self.cursor = self.connection.cursor(dictionary=True)
-            self.cursor.execute("SELECT 1")
-            print("✅ Connexion MySQL réussie")
-        except Error as e:
-            st.error(f"❌ Erreur de connexion MySQL : {e}")
-            st.stop()
+            if not self.connection or not self.connection.is_connected():
+                print("Reconnexion à MySQL...")
+                self._connect()
+            else:
+                # Tester la connexion
+                self.cursor.execute("SELECT 1")
+        except (Error, mysql.connector.OperationalError) as e:
+            print(f"Connexion perdue, tentative de reconnexion: {e}")
+            try:
+                self._connect()
+            except Exception as reconnect_error:
+                print(f"Échec de reconnexion: {reconnect_error}")
+                raise
+
+    def keep_alive(self):
+        """Maintient la connexion active"""
+        try:
+            if self.connection and self.connection.is_connected():
+                self.cursor.execute("SELECT 1")
+                self.cursor.fetchone()
+        except:
+            self._connect()
 
     def _get_existing_columns(self, table_name):
         try:
@@ -423,6 +467,9 @@ class Database:
                     user_id VARCHAR(36) NOT NULL,
                     sender VARCHAR(50) NOT NULL,
                     content TEXT NOT NULL,
+                    attachment LONGBLOB,
+                    attachment_filename VARCHAR(255),
+                    attachment_type VARCHAR(50),
                     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     is_read BOOLEAN DEFAULT FALSE,
                     KEY idx_msg_user (user_id)
@@ -460,6 +507,61 @@ class Database:
         except Error as e:
             print(f"❌ Erreur: {e}")
             st.error(f"Erreur MySQL: {e}")
+
+    def send_message_with_attachment(self, user_id, sender, content, file_bytes, filename, file_type):
+        """Envoie un message avec pièce jointe"""
+        try:
+            msg_id = str(uuid.uuid4())
+            
+            # Vérifier si les colonnes attachment existent
+            self.cursor.execute("""
+                SHOW COLUMNS FROM messages 
+                WHERE Field IN ('attachment', 'attachment_filename', 'attachment_type')
+            """)
+            existing_cols = [col['Field'] for col in self.cursor.fetchall()]
+            
+            # Ajouter les colonnes si nécessaire
+            if 'attachment' not in existing_cols:
+                self.cursor.execute("ALTER TABLE messages ADD COLUMN attachment LONGBLOB")
+            if 'attachment_filename' not in existing_cols:
+                self.cursor.execute("ALTER TABLE messages ADD COLUMN attachment_filename VARCHAR(255)")
+            if 'attachment_type' not in existing_cols:
+                self.cursor.execute("ALTER TABLE messages ADD COLUMN attachment_type VARCHAR(50)")
+            
+            self.connection.commit()
+            
+            # Insérer le message avec la pièce jointe
+            self.cursor.execute("""
+                INSERT INTO messages (id, user_id, sender, content, attachment, attachment_filename, attachment_type, timestamp)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+            """, (msg_id, user_id, sender, content, file_bytes, filename, file_type))
+            
+            self.connection.commit()
+            return True, msg_id
+        except Error as e:
+            return False, str(e)
+
+    def get_user_messages_with_attachments(self, user_id, limit=50):
+        """Récupère les messages d'un utilisateur avec leurs pièces jointes"""
+        try:
+            self._ensure_connection()
+            self.cursor.execute("""
+                SELECT * FROM messages 
+                WHERE user_id=%s 
+                ORDER BY timestamp DESC LIMIT %s
+            """, (user_id, limit))
+            msgs = self.cursor.fetchall()
+            
+            # Marquer les messages comme lus
+            self.cursor.execute("""
+                UPDATE messages SET is_read=TRUE 
+                WHERE user_id=%s AND sender='support' AND is_read=FALSE
+            """, (user_id,))
+            self.connection.commit()
+            
+            return msgs[::-1]
+        except Error:
+            return []
 
     # ==================== UTILISATEURS ====================
     def create_user(self, first_name, last_name, email, phone, password):
@@ -606,6 +708,9 @@ class Database:
     def get_user_avis(self, user_id):
         """Récupère uniquement les AVI associées à l'utilisateur connecté"""
         try:
+            # S'assurer que la connexion est active
+            self._ensure_connection()
+            
             # 1. Récupérer les informations de l'utilisateur
             self.cursor.execute('''
             SELECT id, first_name, last_name, email FROM utilisateurs WHERE id = %s
@@ -617,13 +722,11 @@ class Database:
             
             user_first = user.get('first_name', '')
             user_last = user.get('last_name', '')
-            user_email = user.get('email', '')
             
-            print(f"Recherche AVI pour: {user_first} {user_last} ({user_email})")
+            print(f"Recherche AVI pour: {user_first} {user_last}")
             
-            # 2. Récupérer les AVI qui correspondent à cet utilisateur
-            # On cherche dans nom_complet ou via email
-            self.cursor.execute('''
+            # 2. Rechercher les AVI
+            query = '''
             SELECT 
                 reference,
                 nom_complet,
@@ -639,22 +742,31 @@ class Database:
                 commentaires,
                 created_at
             FROM avis
-            WHERE nom_complet LIKE %s 
-               OR nom_complet LIKE %s
-               OR nom_complet LIKE %s
+            WHERE LOWER(nom_complet) LIKE LOWER(%s)
+               OR LOWER(nom_complet) LIKE LOWER(%s)
             ORDER BY date_creation DESC
-            ''', (f'%{user_first}%', f'%{user_last}%', f'%{user_first} {user_last}%'))
+            '''
             
+            search_pattern1 = f'%{user_first}%'
+            search_pattern2 = f'%{user_last}%'
+            
+            self.cursor.execute(query, (search_pattern1, search_pattern2))
             results = self.cursor.fetchall()
             
             print(f"AVI trouvées: {len(results)}")
-            for r in results:
-                print(f"  - {r.get('reference')}: {r.get('nom_complet')}")
-            
             return results
             
         except Error as e:
             print(f"Erreur get_user_avis: {e}")
+            # Tentative de reconnexion et réessai
+            try:
+                self._ensure_connection()
+                self.cursor.execute(query, (search_pattern1, search_pattern2))
+                return self.cursor.fetchall()
+            except:
+                return []
+        except Exception as e:
+            print(f"Erreur générale get_user_avis: {e}")
             return []
 
 # ============================================================
@@ -720,7 +832,6 @@ def auth_page():
                         else:
                             st.error("Email ou mot de passe incorrect")
 
-                # Bouton de lien
                 st.page_link("https://ecocapitale-bm.streamlit.app/", label="EcoCapital")                     
         
         with tab2:
@@ -799,9 +910,6 @@ def dashboard_page():
 # ============================================================
 # PAGE DEMANDE AVI
 # ============================================================
-# ============================================================
-# PAGE DEMANDE AVI
-# ============================================================
 def avi_request_page():
     set_custom_theme()
     
@@ -825,13 +933,12 @@ def avi_request_page():
         st.markdown('<div class="card-premium animate-fadeInLeft">', unsafe_allow_html=True)
         st.markdown("### 📝 Informations Personnelles")
         
-        # Formulaire avec des clés uniques
         with st.form(key="avi_form_step1"):
             col1, col2 = st.columns(2)
             with col1:
                 last_name = st.text_input("Nom *", placeholder="Votre nom de famille", key="avi_last_name")
                 birth_date = st.date_input("Date de naissance *", 
-                                          value=datetime.now() - timedelta(days=365*20), 
+                                          value=datetime.now() - timedelta(days=365*70), 
                                           max_value=datetime.now(), 
                                           key="avi_birth_date")
                 nationality = st.text_input("Nationalité *", placeholder="Ex: Congolaise", key="avi_nationality")
@@ -851,11 +958,9 @@ def avi_request_page():
                                       index=0,
                                       key="avi_country")
             
-            # Bouton dans le formulaire
             submitted = st.form_submit_button("Suivant ➡️", use_container_width=True)
             
             if submitted:
-                # Récupérer les valeurs depuis st.session_state
                 last_name_val = st.session_state.get("avi_last_name", "")
                 first_name_val = st.session_state.get("avi_first_name", "")
                 birth_place_val = st.session_state.get("avi_birth_place", "")
@@ -866,7 +971,6 @@ def avi_request_page():
                 country_val = st.session_state.get("avi_country", "Congo Brazzaville")
                 birth_date_val = st.session_state.get("avi_birth_date", datetime.now())
                 
-                # Vérification
                 missing_fields = []
                 if not last_name_val or last_name_val.strip() == "":
                     missing_fields.append("Nom")
@@ -926,7 +1030,6 @@ def avi_request_page():
                     consent_val = st.session_state.get("avi_consent", False)
                     
                     if identity_doc_val and avi_amount_val and consent_val:
-                        # Lire le fichier
                         file_data = identity_doc_val.read()
                         db.save_document(st.session_state.user['id'], identity_doc_val.name, file_data, identity_doc_val.type)
                         st.session_state.avi_data['avi_amount'] = avi_amount_val
@@ -972,10 +1075,8 @@ def avi_request_page():
                         if ok:
                             st.success(f"✅ Demande {ref} soumise avec succès !")
                             st.balloons()
-                            # Réinitialiser
                             st.session_state.avi_step = 1
                             st.session_state.avi_data = {}
-                            # Nettoyer les clés
                             keys_to_clear = ["avi_last_name", "avi_first_name", "avi_birth_place", "avi_nationality", 
                                             "avi_address", "avi_postal_code", "avi_city", "avi_birth_date", "avi_country",
                                             "avi_amount", "avi_identity_doc", "avi_consent", "avi_final_consent"]
@@ -987,7 +1088,6 @@ def avi_request_page():
                             st.error(f"❌ Erreur: {ref}")
                     else:
                         st.error("⚠️ Veuillez confirmer les informations")
-
 
 # ============================================================
 # PAGE MES AVI (DESIGN AMÉLIORÉ) - VERSION COMPLÈTE
@@ -1007,7 +1107,6 @@ def my_avi_page():
     </div>
     """, unsafe_allow_html=True)
     
-    # Section 1: Demandes soumises
     st.markdown("### 📝 Demandes soumises")
     user_requests = db.get_user_avi_requests(st.session_state.user['id'])
     
@@ -1018,40 +1117,22 @@ def my_avi_page():
             st.session_state.menu = "Demande AVI"
             st.rerun()
     else:
-        st.markdown('<div class="timeline-premium">', unsafe_allow_html=True)
-        
         for i, req in enumerate(user_requests):
             status_color = {'En attente': '#ed8936', 'Validée': '#48bb78', 'Rejetée': '#f56565'}.get(req['status'], '#a0aec0')
             status_emoji = {'En attente': '⏳', 'Validée': '✅', 'Rejetée': '❌'}.get(req['status'], '📋')
             
-            st.markdown(f"""
-            <div class="timeline-item-premium" style="animation-delay: {i * 0.1}s;">
-                <div class="timeline-dot-premium" style="background: linear-gradient(135deg, {status_color}, {status_color}dd);"></div>
-                <div class="card-premium">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                        <div>
-                            <h4 style="margin: 0; font-size: 1.2rem;">{req['id']}</h4>
-                            <p style="color: #718096; margin: 0.25rem 0;">
-                                📅 {req['created_at'].strftime('%d/%m/%Y à %H:%M')}
-                            </p>
-                            <p style="margin: 0.25rem 0;">
-                                💰 <strong>{req['request_data'].get('avi_amount', 'N/A')}</strong>
-                            </p>
-                        </div>
-                        <div style="text-align: right;">
-                            <span class="badge-premium" style="background: {status_color}20; color: {status_color}; 
-                                border: 1px solid {status_color}; font-size: 0.9rem; padding: 0.5rem 1.2rem;">
-                                {status_emoji} {req['status']}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # Section 2: AVI générées (nouvelles)
+            with st.expander(f"{status_emoji} {req['id']} - {req['created_at'].strftime('%d/%m/%Y')}"):
+                st.markdown(f"""
+                **Statut:** {req['status']}
+                **Date:** {req['created_at'].strftime('%d/%m/%Y %H:%M')}
+                **Montant:** {req['request_data'].get('avi_amount', 'N/A')}
+                """)
+                
+                if req['status'] == 'Validée' and req.get('request_data', {}).get('avi_amount'):
+                    col1, col2, col3 = st.columns([1, 2, 1])
+                    with col2:
+                        st.info("✅ Votre demande a été validée. Vous recevrez votre attestation sous 48h.")
+    
     st.markdown("---")
     st.markdown("### 📄 Attestations AVI Générées")
 
@@ -1060,26 +1141,17 @@ def my_avi_page():
     if not user_avis:
         st.info("📭 Aucune attestation AVI n'a encore été générée pour vous")
     else:
-        import qrcode
-        from io import BytesIO
-        from PIL import Image
-        
         def montant_en_lettres(montant):
-            """Convertit un montant numérique en lettres françaises avec devise"""
             try:
                 partie_entiere = int(montant)
                 partie_decimale = int(round((montant - partie_entiere) * 100))
-                
                 texte = num2words(partie_entiere, lang='fr')
-                
                 if partie_entiere > 1:
                     texte += " francs CFA"
                 else:
                     texte += " franc CFA"
-                
                 if partie_decimale > 0:
                     texte += " et " + num2words(partie_decimale, lang='fr') + " centimes"
-                
                 return texte.capitalize()
             except:
                 return f"{montant:,.2f} francs CFA"
@@ -1089,47 +1161,40 @@ def my_avi_page():
                 pdf = FPDF()
                 pdf.add_page()
                 
-                # ---- Ajout des logos floutés en arrière-plan (comme dans Code 2) ----
+                # Logos en arrière-plan
                 try:
                     logo_path = "assets/logo.png"
                     if os.path.exists(logo_path):
                         img = Image.open(logo_path)
-                        
                         if img.mode != 'RGBA':
                             img = img.convert('RGBA')
-                        
                         data = img.getdata()
                         new_data = []
                         for item in data:
                             new_data.append((item[0], item[1], item[2], int(item[3] * 0.2)))
                         img.putdata(new_data)
-                        
                         temp_logo = BytesIO()
                         img.save(temp_logo, format='PNG')
                         temp_logo.seek(0)
-                        
                         for position in [(30, 30), (120, 200), (50, 300), (100, 100)]:
                             pdf.image(temp_logo, x=position[0], y=position[1], w=100)
-                except Exception as e:
+                except:
                     pass
                 
-                # ---- En-tête ----
+                # En-tête
                 pdf.set_font('Arial', 'B', 16)
                 pdf.cell(0, 30, 'ATTESTATION DE VIREMENT IRREVOCABLE', 0, 1, 'C')
                 
-                # Référence du document
                 pdf.set_font('Arial', 'B', 10)
                 pdf.cell(0, 0, f"DGF/EC-{avi_data.get('reference', 'N/A')}", 0, 1, 'C')
                 pdf.ln(10)
                 
-                # ---- Logo principal ----
                 try:
                     if os.path.exists("assets/logo.png"):
                         pdf.image("assets/logo.png", x=10, y=10, w=30)
                 except:
                     pass
                 
-                # ---- Corps du document (identique au Code 2) ----
                 pdf.set_font('Arial', '', 12)
                 intro = [
                     "Nous soussignés, Eco Capital (E.C), établissement de microfinance agréé pour exercer des",
@@ -1147,7 +1212,6 @@ def my_avi_page():
                 for line in intro:
                     pdf.cell(0, 5, line, 0, 1)
                 
-                # Informations bancaires
                 pdf.set_font('Arial', 'B', 12)
                 pdf.cell(40, 5, "CODE BANQUE :", 0, 0)
                 pdf.set_font('Arial', '', 12)
@@ -1164,7 +1228,6 @@ def my_avi_page():
                 pdf.cell(0, 5, avi_data.get('devise', 'XAF'), 0, 1)
                 pdf.ln(5)
                 
-                # Détails du virement
                 montant = avi_data.get('montant', 0)
                 try:
                     montant_float = float(montant) if montant else 0
@@ -1188,7 +1251,6 @@ def my_avi_page():
                 for line in details:
                     pdf.cell(0, 5, line, 0, 1)
                 
-                # Coordonnées bancaires
                 pdf.set_font('Arial', 'B', 12)
                 pdf.cell(16, 5, "IBAN :", 0, 0)
                 pdf.set_font('Arial', '', 12)
@@ -1200,11 +1262,9 @@ def my_avi_page():
                 pdf.cell(0, 5, avi_data.get('bic', 'N/A'), 0, 1)
                 pdf.ln(10)
                 
-                # Clause de validation
                 pdf.cell(0, 5, "En foi de quoi, cette attestation lui est délivrée pour servir et valoir ce que de droit.", 0, 1)
                 pdf.ln(10)
                 
-                # Date et signature
                 date_val = avi_data.get('date_creation')
                 if date_val:
                     if hasattr(date_val, 'strftime'):
@@ -1222,7 +1282,6 @@ def my_avi_page():
                 pdf.cell(0, 5, "Directeur de la Gestion Financière", 0, 1)
                 pdf.ln(15)
                 
-                # Pied de page (identique au Code 2)
                 footer = [
                     "Eco capital Sarl",
                     "Société a responsabilité limité au capital de 60.000.000 XAF",
@@ -1237,7 +1296,6 @@ def my_avi_page():
                 for line in footer:
                     pdf.cell(1, 4.5, line, 0, 1, 'L')
                 
-                # QR Code (identique au Code 2)
                 try:
                     qr_data = {
                         "Référence": avi_data.get('reference', 'N/A'),
@@ -1249,38 +1307,32 @@ def my_avi_page():
                         "Date Création": date_str
                     }
                     
-                    qr = qrcode.QRCode(
-                        version=1,
-                        error_correction=qrcode.constants.ERROR_CORRECT_L,
-                        box_size=3,
-                        border=2,
-                    )
-                    
+                    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=3, border=2)
                     qr.add_data(str(qr_data))
                     qr.make(fit=True)
-                    
                     img = qr.make_image(fill_color="black", back_color="white")
                     img_bytes = BytesIO()
                     img.save(img_bytes, format='PNG')
                     img_bytes.seek(0)
                     pdf.image(img_bytes, x=150, y=pdf.get_y() - 40, w=40)
-                except Exception as e:
+                except:
                     pass
                 
-                # Conversion du PDF en bytes
-                output = pdf.output(dest='S')
-                if isinstance(output, bytearray):
-                    return bytes(output)
-                elif isinstance(output, bytes):
-                    return output
-                else:
-                    return output.encode('latin1') if hasattr(output, 'encode') else output
+                try:
+                    output = pdf.output()
+                    if isinstance(output, str):
+                        output = output.encode('latin1')
+                except TypeError:
+                    output = pdf.output(dest='S')
+                    if isinstance(output, str):
+                        output = output.encode('latin1')
+                
+                return output
                     
             except Exception as e:
                 print(f"Erreur generate_avi_pdf: {e}")
                 return None
         
-        # Affichage des AVI dans des expanders
         for i, avi in enumerate(user_avis):
             reference = avi.get('reference', 'N/A') if avi.get('reference') else f'AVI_{i+1}'
             nom_complet = avi.get('nom_complet', 'Bénéficiaire non spécifié')
@@ -1315,14 +1367,10 @@ def my_avi_page():
                     """)
                 
                 if avi.get('commentaires'):
-                    st.markdown(f"""
-                    **📝 Commentaires:**
-                    {avi.get('commentaires')}
-                    """)
+                    st.markdown(f"**📝 Commentaires:** {avi.get('commentaires')}")
                 
                 st.markdown("---")
                 
-                # Bouton de téléchargement
                 try:
                     pdf_bytes = generate_avi_pdf(avi)
                     if pdf_bytes:
@@ -1340,12 +1388,53 @@ def my_avi_page():
                         st.error(f"Impossible de générer le PDF pour {reference}")
                 except Exception as e:
                     st.error(f"Erreur lors de la génération du PDF: {str(e)}")
-                    
+
 # ============================================================
 # PAGE MESSAGES (DESIGN AMÉLIORÉ)
 # ============================================================
 def messages_page():
     set_custom_theme()
+    
+    st.markdown("""
+    <style>
+    .message-sent-premium {
+        background: linear-gradient(135deg, #4a6fa5, #166088);
+        color: white;
+        padding: 1rem;
+        border-radius: 15px 15px 5px 15px;
+        margin: 0.5rem 0;
+        max-width: 80%;
+        margin-left: auto;
+    }
+    
+    .message-received-premium {
+        background: #f0f0f0;
+        color: #333;
+        padding: 1rem;
+        border-radius: 15px 15px 15px 5px;
+        margin: 0.5rem 0;
+        max-width: 80%;
+    }
+    
+    .attachment-preview {
+        margin-top: 0.5rem;
+        padding: 0.5rem;
+        background: rgba(0,0,0,0.05);
+        border-radius: 8px;
+        display: inline-block;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+        .message-received-premium {
+            background: #2d2d44;
+            color: #f0f2f6;
+        }
+        .attachment-preview {
+            background: rgba(255,255,255,0.1);
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
     st.markdown("""
     <div class="animate-fadeInDown" style="margin-bottom: 2rem;">
@@ -1354,7 +1443,7 @@ def messages_page():
             💬 Centre de Messages
         </h2>
         <p style="color: #718096; font-weight: 300;">
-            Communiquez directement avec notre équipe support
+            Communiquez directement avec notre équipe support et partagez des documents
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -1362,28 +1451,22 @@ def messages_page():
     col1, col2 = st.columns([1, 2])
     
     with col1:
-        st.markdown('<div class="card-premium animate-fadeInLeft">', unsafe_allow_html=True)
         st.markdown("### 📋 Conversations")
         
         conversations = db.get_user_conversations(st.session_state.user['id'])
         
-        # Vérifier si la liste est vide ou contient des None
         if not conversations or all(conv is None for conv in conversations):
-            # Créer des conversations par défaut si nécessaire
             default_conversations = ["Support Technique", "Service AVI", "Comptabilité"]
             for name in default_conversations:
                 db.create_conversation(st.session_state.user['id'], name)
             conversations = db.get_user_conversations(st.session_state.user['id'])
         
-        # Filtrer les conversations None et s'assurer qu'elles ont les propriétés nécessaires
         valid_conversations = []
         for conv in conversations:
             if conv is not None and isinstance(conv, dict):
-                # S'assurer que la conversation a les champs nécessaires
                 if 'name' in conv:
                     valid_conversations.append(conv)
                 else:
-                    # Si la conversation existe mais n'a pas de 'name', on la corrige
                     conv['name'] = f"Conversation {conv.get('id', '')[:8]}"
                     conv['last_message'] = conv.get('last_message', 'Nouvelle conversation')
                     conv['unread_count'] = conv.get('unread_count', 0)
@@ -1391,26 +1474,20 @@ def messages_page():
         
         if valid_conversations:
             for conv in valid_conversations:
-                # Utiliser .get() avec des valeurs par défaut sécurisées
                 conv_name = conv.get('name', 'Conversation')
                 conv_last_message = conv.get('last_message', 'Nouvelle conversation')
                 conv_unread_count = conv.get('unread_count', 0)
                 
-                # S'assurer que last_message est une chaîne de caractères
                 if conv_last_message is None:
                     conv_last_message = 'Nouvelle conversation'
                 elif not isinstance(conv_last_message, str):
                     conv_last_message = str(conv_last_message)
                 
-                # Tronquer le message si nécessaire
                 last_message_preview = conv_last_message[:50] if len(conv_last_message) > 50 else conv_last_message
-                
-                badge = f'<span class="badge-premium bg-gradient-1" style="font-size: 0.7rem;">{conv_unread_count}</span>' if conv_unread_count > 0 else ""
+                badge = f'<span style="background: #ef4444; color: white; border-radius: 50%; padding: 0.2rem 0.5rem; font-size: 0.7rem;">{conv_unread_count}</span>' if conv_unread_count > 0 else ""
                 
                 st.markdown(f"""
-                <div style="padding: 1rem; margin-bottom: 0.5rem; border-radius: 12px; 
-                    background: white; cursor: pointer; transition: all 0.3s; border: 2px solid transparent;"
-                    onmouseover="this.style.borderColor='#667eea'" onmouseout="this.style.borderColor='transparent'">
+                <div style="padding: 1rem; margin-bottom: 0.5rem; border-radius: 12px; background: white;">
                     <strong>{conv_name}</strong> {badge}
                     <br>
                     <small style="color: #718096;">{last_message_preview}...</small>
@@ -1418,56 +1495,137 @@ def messages_page():
                 """, unsafe_allow_html=True)
         else:
             st.info("💬 Aucune conversation disponible")
-        
-        st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
-        st.markdown('<div class="card-premium animate-fadeInRight">', unsafe_allow_html=True)
         st.markdown("### 💭 Support Technique")
         
-        user_messages = db.get_user_messages(st.session_state.user['id'])
+        user_messages = db.get_user_messages_with_attachments(st.session_state.user['id'])
         
         if user_messages:
             for msg in user_messages:
                 if msg and isinstance(msg, dict):
-                    if msg.get('sender') == 'user':
+                    sender = msg.get('sender', 'user')
+                    content = msg.get('content', 'Message vide')
+                    timestamp = msg.get('timestamp', datetime.now())
+                    timestamp_str = timestamp.strftime('%d/%m %H:%M') if hasattr(timestamp, 'strftime') else str(timestamp)
+                    attachment = msg.get('attachment')
+                    attachment_filename = msg.get('attachment_filename', '')
+                    
+                    if sender == 'user':
                         st.markdown(f"""
                         <div class="message-sent-premium">
                             <strong>👤 Vous</strong>
-                            <p style="margin: 0.5rem 0;">{msg.get('content', 'Message vide')}</p>
-                            <small style="opacity: 0.8;">{msg.get('timestamp', datetime.now()).strftime('%d/%m %H:%M') if msg.get('timestamp') else datetime.now().strftime('%d/%m %H:%M')}</small>
+                            <p style="margin: 0.5rem 0;">{content}</p>
+                        """, unsafe_allow_html=True)
+                        
+                        if attachment and attachment_filename:
+                            file_ext = attachment_filename.split('.')[-1].lower() if '.' in attachment_filename else ''
+                            
+                            if file_ext in ['jpg', 'jpeg', 'png', 'gif', 'webp']:
+                                try:
+                                    import base64
+                                    img_data = base64.b64encode(attachment).decode('utf-8')
+                                    st.markdown(f"""
+                                    <div class="attachment-preview">
+                                        <img src="data:image/{file_ext};base64,{img_data}" style="max-width: 200px; max-height: 150px; border-radius: 8px;">
+                                        <br>
+                                        <small>📎 {attachment_filename}</small>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                except:
+                                    st.markdown(f'<div class="attachment-preview">📎 {attachment_filename}</div>', unsafe_allow_html=True)
+                            else:
+                                st.download_button(
+                                    label=f"📎 Télécharger {attachment_filename}",
+                                    data=attachment,
+                                    file_name=attachment_filename,
+                                    mime="application/octet-stream",
+                                    key=f"download_{msg.get('id', '')}"
+                                )
+                        
+                        st.markdown(f"""
+                            <small style="opacity: 0.8;">📅 {timestamp_str}</small>
                         </div>
                         """, unsafe_allow_html=True)
                     else:
                         st.markdown(f"""
                         <div class="message-received-premium">
                             <strong>🏦 Support</strong>
-                            <p style="margin: 0.5rem 0;">{msg.get('content', 'Message vide')}</p>
-                            <small style="opacity: 0.8;">{msg.get('timestamp', datetime.now()).strftime('%d/%m %H:%M') if msg.get('timestamp') else datetime.now().strftime('%d/%m %H:%M')}</small>
+                            <p style="margin: 0.5rem 0;">{content}</p>
+                        """, unsafe_allow_html=True)
+                        
+                        if attachment and attachment_filename:
+                            file_ext = attachment_filename.split('.')[-1].lower() if '.' in attachment_filename else ''
+                            
+                            if file_ext in ['jpg', 'jpeg', 'png', 'gif', 'webp']:
+                                try:
+                                    import base64
+                                    img_data = base64.b64encode(attachment).decode('utf-8')
+                                    st.markdown(f"""
+                                    <div class="attachment-preview">
+                                        <img src="data:image/{file_ext};base64,{img_data}" style="max-width: 200px; max-height: 150px; border-radius: 8px;">
+                                        <br>
+                                        <small>📎 {attachment_filename}</small>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                except:
+                                    st.markdown(f'<div class="attachment-preview">📎 {attachment_filename}</div>', unsafe_allow_html=True)
+                            else:
+                                st.download_button(
+                                    label=f"📎 Télécharger {attachment_filename}",
+                                    data=attachment,
+                                    file_name=attachment_filename,
+                                    mime="application/octet-stream",
+                                    key=f"download_support_{msg.get('id', '')}"
+                                )
+                        
+                        st.markdown(f"""
+                            <small style="opacity: 0.8;">📅 {timestamp_str}</small>
                         </div>
                         """, unsafe_allow_html=True)
         else:
             st.info("💬 Aucun message pour le moment. Commencez une conversation !")
         
         st.markdown("<br>", unsafe_allow_html=True)
-        with st.form("send_msg", clear_on_submit=True):
-            c1, c2 = st.columns([4, 1])
-            with c1:
-                msg_text = st.text_area("", placeholder="Écrivez votre message ici...", label_visibility="collapsed")
-            with c2:
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.form_submit_button("📤 Envoyer", use_container_width=True):
-                    if msg_text and msg_text.strip():
-                        success, result = db.send_message(st.session_state.user['id'], 'user', msg_text.strip())
-                        if success:
-                            st.success("Message envoyé avec succès !")
-                            st.rerun()
-                        else:
-                            st.error(f"Erreur lors de l'envoi : {result}")
-                    else:
-                        st.warning("Veuillez écrire un message avant d'envoyer.")
         
-        st.markdown('</div>', unsafe_allow_html=True)
+        with st.form("send_msg", clear_on_submit=True):
+            msg_text = st.text_area("Message", placeholder="Écrivez votre message ici...", height=80)
+            
+            uploaded_file = st.file_uploader(
+                "📎 Joindre un fichier (optionnel)",
+                type=['pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'zip'],
+                help="Vous pouvez joindre des documents, images, PDF, etc."
+            )
+            
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                submitted = st.form_submit_button("📤 Envoyer", use_container_width=True)
+            
+            if submitted:
+                if not msg_text.strip() and not uploaded_file:
+                    st.warning("Veuillez écrire un message ou joindre un fichier.")
+                else:
+                    if uploaded_file:
+                        file_bytes = uploaded_file.read()
+                        filename = uploaded_file.name
+                        file_type = uploaded_file.type
+                        
+                        success, result = db.send_message_with_attachment(
+                            st.session_state.user['id'], 
+                            'user', 
+                            msg_text if msg_text.strip() else "[Message avec pièce jointe]", 
+                            file_bytes, 
+                            filename, 
+                            file_type
+                        )
+                    else:
+                        success, result = db.send_message(st.session_state.user['id'], 'user', msg_text)
+                    
+                    if success:
+                        st.success("Message envoyé avec succès !")
+                        st.rerun()
+                    else:
+                        st.error(f"Erreur lors de l'envoi : {result}")
 
 # ============================================================
 # MAIN
@@ -1499,7 +1657,7 @@ def main():
             None,
             ["Dashboard", "Demande AVI", "Mes AVI", "Messages", "Déconnexion"],
             icons=["speedometer2", "file-text", "folder-check", "chat-dots", "box-arrow-right"],
-            default_index=["Dashboard", "Demande AVI", "Mes AVI", "Messages", "Déconnexion"].index(st.session_state.menu) if st.session_state.menu in ["Dashboard", "Demande AVI", "Mes AVI", "Messages", "Déconnexion"] else 0,
+            default_index=0,
             styles={
                 "container": {"padding": "0!important"},
                 "icon": {"color": "#4a6fa5", "font-size": "18px"},
