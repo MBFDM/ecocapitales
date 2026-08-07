@@ -1318,16 +1318,41 @@ def my_avi_page():
                 except:
                     pass
                 
+                
+                # À la fin de la fonction, au lieu de :
+                # try:
+                #     output = pdf.output()
+                #     if isinstance(output, str):
+                #         output = output.encode('latin1')
+                # except TypeError:
+                #     output = pdf.output(dest='S')
+                #     if isinstance(output, str):
+                #         output = output.encode('latin1')
+                # 
+                # return output
+        #except Exception as e:
+        #        print(f"Erreur generate_avi_pdf: {e}")
+        #        return None
+                            
+            # Utilisez ce code corrigé :
                 try:
-                    output = pdf.output()
-                    if isinstance(output, str):
-                        output = output.encode('latin1')
-                except TypeError:
+                    # Méthode 1 : Utiliser buffer en mémoire
                     output = pdf.output(dest='S')
                     if isinstance(output, str):
                         output = output.encode('latin1')
-                
-                return output
+                    elif isinstance(output, bytearray):
+                        output = bytes(output)  # Convertir bytearray en bytes
+                    return output
+                except Exception as e:
+                    print(f"Erreur lors de la génération du PDF: {e}")
+                    # Méthode de secours : écrire dans un fichier temporaire
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
+                        pdf.output(tmp.name)
+                        with open(tmp.name, 'rb') as f:
+                            pdf_data = f.read()
+                        os.unlink(tmp.name)
+                        return pdf_data
                     
             except Exception as e:
                 print(f"Erreur generate_avi_pdf: {e}")
