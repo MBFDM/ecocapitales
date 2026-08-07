@@ -15,6 +15,265 @@ from num2words import num2words
 import qrcode
 from io import BytesIO
 from PIL import Image
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import re
+
+# ============================================================
+# CONFIGURATION EMAIL (À MODIFIER AVEC VOS IDENTIFIANTS)
+# ============================================================
+EMAIL_CONFIG = {
+    'smtp_server': 'smtp.gmail.com',  # ou votre serveur SMTP
+    'smtp_port': 587,
+    'smtp_username': 'votre_email@gmail.com',  # À remplacer
+    'smtp_password': 'votre_mot_de_passe_app',  # À remplacer
+    'from_email': 'votre_email@gmail.com',
+    'from_name': 'EcoCapital - Support'
+}
+
+# ============================================================
+# FONCTIONS D'ENVOI D'EMAIL
+# ============================================================
+def send_email(to_email, subject, html_content, text_content=""):
+    """Envoie un email avec SMTP"""
+    try:
+        # Créer le message
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = f"{EMAIL_CONFIG['from_name']} <{EMAIL_CONFIG['from_email']}>"
+        msg['To'] = to_email
+        
+        # Ajouter les versions texte et HTML
+        if text_content:
+            part_text = MIMEText(text_content, 'plain')
+            msg.attach(part_text)
+        
+        part_html = MIMEText(html_content, 'html')
+        msg.attach(part_html)
+        
+        # Connexion au serveur SMTP
+        with smtplib.SMTP(EMAIL_CONFIG['smtp_server'], EMAIL_CONFIG['smtp_port']) as server:
+            server.starttls()
+            server.login(EMAIL_CONFIG['smtp_username'], EMAIL_CONFIG['smtp_password'])
+            server.send_message(msg)
+        
+        print(f"✅ Email envoyé à {to_email}")
+        return True, "Email envoyé avec succès"
+        
+    except Exception as e:
+        print(f"❌ Erreur d'envoi d'email: {e}")
+        return False, str(e)
+
+def send_reset_password_email(email, token, user_name=""):
+    """Envoie l'email de réinitialisation du mot de passe"""
+    # Construction du lien de réinitialisation
+    base_url = "https://ecocapitale-bm.streamlit.app"  # À adapter selon votre URL
+    reset_link = f"{base_url}?reset_token={token}"
+    
+    # Contenu HTML de l'email
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+            }}
+            .header {{
+                background: linear-gradient(135deg, #4a6fa5, #166088);
+                color: white;
+                padding: 20px;
+                text-align: center;
+                border-radius: 10px 10px 0 0;
+            }}
+            .content {{
+                background: #f8f9fa;
+                padding: 30px;
+                border-radius: 0 0 10px 10px;
+                border: 1px solid #e0e0e0;
+            }}
+            .button {{
+                display: inline-block;
+                padding: 12px 30px;
+                background: linear-gradient(135deg, #4a6fa5, #166088);
+                color: white !important;
+                text-decoration: none;
+                border-radius: 8px;
+                margin: 20px 0;
+                font-weight: bold;
+            }}
+            .footer {{
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #e0e0e0;
+                font-size: 12px;
+                color: #666;
+                text-align: center;
+            }}
+            .warning {{
+                background: #fff3cd;
+                border-left: 4px solid #ffc107;
+                padding: 15px;
+                margin: 15px 0;
+                border-radius: 4px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>🔑 Réinitialisation de mot de passe</h1>
+        </div>
+        <div class="content">
+            <p>Bonjour {user_name},</p>
+            
+            <p>Vous avez demandé la réinitialisation de votre mot de passe pour votre compte EcoCapital.</p>
+            
+            <p>Cliquez sur le bouton ci-dessous pour définir un nouveau mot de passe :</p>
+            
+            <div style="text-align: center;">
+                <a href="{reset_link}" class="button">Réinitialiser mon mot de passe</a>
+            </div>
+            
+            <div class="warning">
+                ⚠️ <strong>Ce lien expirera dans 24 heures.</strong><br>
+                Si vous n'avez pas demandé cette réinitialisation, ignorez simplement cet email.
+            </div>
+            
+            <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+            <p style="word-break: break-all; background: #f0f0f0; padding: 10px; border-radius: 4px; font-size: 12px;">
+                {reset_link}
+            </p>
+            
+            <p>Pour toute question, n'hésitez pas à contacter notre équipe support.</p>
+            
+            <p>Cordialement,<br>
+            <strong>L'équipe EcoCapital</strong></p>
+        </div>
+        <div class="footer">
+            <p>EcoCapital - Votre Partenaire Financier de Confiance</p>
+            <p>Cet email a été envoyé automatiquement, veuillez ne pas y répondre.</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    # Version texte pour les clients qui ne supportent pas HTML
+    text_content = f"""
+    Réinitialisation de mot de passe - EcoCapital
+    
+    Bonjour {user_name},
+    
+    Vous avez demandé la réinitialisation de votre mot de passe pour votre compte EcoCapital.
+    
+    Cliquez sur le lien ci-dessous pour définir un nouveau mot de passe :
+    {reset_link}
+    
+    ⚠️ Ce lien expirera dans 24 heures.
+    Si vous n'avez pas demandé cette réinitialisation, ignorez simplement cet email.
+    
+    Pour toute question, n'hésitez pas à contacter notre équipe support.
+    
+    Cordialement,
+    L'équipe EcoCapital
+    """
+    
+    return send_email(email, "🔑 Réinitialisation de votre mot de passe EcoCapital", html_content, text_content)
+
+def send_password_changed_notification(email, user_name=""):
+    """Envoie une notification de changement de mot de passe"""
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+            }}
+            .header {{
+                background: linear-gradient(135deg, #28a745, #20c997);
+                color: white;
+                padding: 20px;
+                text-align: center;
+                border-radius: 10px 10px 0 0;
+            }}
+            .content {{
+                background: #f8f9fa;
+                padding: 30px;
+                border-radius: 0 0 10px 10px;
+                border: 1px solid #e0e0e0;
+            }}
+            .footer {{
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #e0e0e0;
+                font-size: 12px;
+                color: #666;
+                text-align: center;
+            }}
+            .warning {{
+                background: #fff3cd;
+                border-left: 4px solid #ffc107;
+                padding: 15px;
+                margin: 15px 0;
+                border-radius: 4px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>✅ Mot de passe modifié</h1>
+        </div>
+        <div class="content">
+            <p>Bonjour {user_name},</p>
+            
+            <p>Votre mot de passe a été modifié avec succès.</p>
+            
+            <div class="warning">
+                ⚠️ Si vous n'êtes pas à l'origine de cette modification, <strong>contactez immédiatement</strong> notre support client.
+            </div>
+            
+            <p>Pour toute question, n'hésitez pas à contacter notre équipe support.</p>
+            
+            <p>Cordialement,<br>
+            <strong>L'équipe EcoCapital</strong></p>
+        </div>
+        <div class="footer">
+            <p>EcoCapital - Votre Partenaire Financier de Confiance</p>
+            <p>Cet email a été envoyé automatiquement, veuillez ne pas y répondre.</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    text_content = f"""
+    Mot de passe modifié - EcoCapital
+    
+    Bonjour {user_name},
+    
+    Votre mot de passe a été modifié avec succès.
+    
+    ⚠️ Si vous n'êtes pas à l'origine de cette modification, contactez immédiatement notre support client.
+    
+    Pour toute question, n'hésitez pas à contacter notre équipe support.
+    
+    Cordialement,
+    L'équipe EcoCapital
+    """
+    
+    return send_email(email, "✅ Votre mot de passe a été modifié", html_content, text_content)
 
 # ============================================================
 # CONFIGURATION STREAMLIT
@@ -27,10 +286,10 @@ st.set_page_config(
 )
 
 # ============================================================
-# CSS STYLE (IDENTIQUE AU CODE 2)
+# CSS STYLE
 # ============================================================
 def set_custom_theme():
-    """Définit les thèmes light et dark avec animations (identique au Code 2)"""
+    """Définit les thèmes light et dark avec animations"""
     st.markdown(f"""
     <style>
         /* ===== THÈME LIGHT ===== */
@@ -48,14 +307,13 @@ def set_custom_theme():
             }}
         }}
         
-        /* ===== ANIMATIONS COMMUNES ===== */
+        /* ===== ANIMATIONS ===== */
         @keyframes gradientBG {{
             0% {{ background-position: 0% 50%; }}
             50% {{ background-position: 100% 50%; }}
             100% {{ background-position: 0% 50%; }}
         }}
         
-        /* Header animé */
         [data-testid="stHeader"] {{
             background-color: rgba(255, 255, 255, 0.9);
             backdrop-filter: blur(5px);
@@ -70,7 +328,6 @@ def set_custom_theme():
             }}
         }}
         
-        /* Titres animés */
         h1, h2, h3, h4, h5, h6 {{
             animation: fadeIn 0.8s ease-out;
         }}
@@ -80,15 +337,11 @@ def set_custom_theme():
             to {{ opacity: 1; transform: translateY(0); }}
         }}
         
-        /* Boutons avec effets */
         .stButton>button {{
             border-radius: 8px;
             transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
             transform: translateY(0);
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }}
-        
-        .stButton>button {{
             background-color: #4a6fa5;
             color: white;
         }}
@@ -104,21 +357,16 @@ def set_custom_theme():
                 background-color: #166088;
                 color: white;
             }}
-            
             .stButton>button:hover {{
                 background-color: #0d4b6e;
             }}
         }}
         
-        /* Cartes métriques */
         [data-testid="metric-container"] {{
             border-radius: 10px;
             padding: 1rem;
             transition: all 0.3s ease;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }}
-        
-        [data-testid="metric-container"] {{
             background-color: white;
             border-left: 4px solid #4a6fa5;
         }}
@@ -135,18 +383,6 @@ def set_custom_theme():
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
         }}
         
-        /* Tableaux */
-        [data-testid="stDataFrame"] {{
-            border-radius: 10px;
-            animation: fadeInUp 0.6s ease-out;
-        }}
-        
-        @keyframes fadeInUp {{
-            from {{ opacity: 0; transform: translateY(20px); }}
-            to {{ opacity: 1; transform: translateY(0); }}
-        }}
-        
-        /* Conteneur principal */
         .main-container {{
             background: linear-gradient(135deg, #f8faff 0%, #e6ecff 100%);
             border-radius: 18px;
@@ -173,57 +409,26 @@ def set_custom_theme():
         }}
         
         @keyframes fadeInSlide {{
-            from {{ 
-                opacity: 0;
-                transform: translateY(20px);
-            }}
-            to {{ 
-                opacity: 1;
-                transform: translateY(0);
-            }}
+            from {{ opacity: 0; transform: translateY(20px); }}
+            to {{ opacity: 1; transform: translateY(0); }}
         }}
         
-        /* Onglets stylisés */
-        [data-testid="stTabs"] [role="tablist"] {{
-            gap: 5px;
-        }}
-        
-        [data-testid="stTabs"] [role="tab"] {{
-            padding: 10px 20px;
-            border-radius: 8px 8px 0 0;
-            transition: all 0.3s ease;
-        }}
-        
-        [data-testid="stTabs"] [role="tab"] {{
-            background-color: rgba(74, 111, 165, 0.1);
-        }}
-        
-        [data-testid="stTabs"] [aria-selected="true"] {{
-            background-color: #4a6fa5;
+        .login-container {{
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            padding: 2em;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
             color: white;
-            font-weight: bold;
         }}
         
-        @media (prefers-color-scheme: dark) {{
-            [data-testid="stTabs"] [role="tab"] {{
-                background-color: rgba(22, 96, 136, 0.2);
-            }}
-            
-            [data-testid="stTabs"] [aria-selected="true"] {{
-                background-color: #166088;
-            }}
-        }}
-        
-        /* Cartes personnalisées */
         .custom-card {{
             border-radius: 10px;
             padding: 20px;
             margin-bottom: 20px;
             transition: all 0.3s ease;
             border-left: 4px solid #4a6fa5;
-        }}
-        
-        .custom-card {{
             background-color: white;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }}
@@ -241,18 +446,18 @@ def set_custom_theme():
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
         }}
         
-        /* Login container */
-        .login-container {{
-            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
-            background-size: 400% 400%;
-            animation: gradientBG 15s ease infinite;
-            padding: 2em;
-            border-radius: 15px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-            color: white;
+        .forgot-password-link {{
+            color: #4a6fa5 !important;
+            text-decoration: none !important;
+            cursor: pointer;
+            font-size: 0.9rem;
         }}
         
-        /* Scrollbar */
+        .forgot-password-link:hover {{
+            text-decoration: underline !important;
+            color: #166088 !important;
+        }}
+        
         ::-webkit-scrollbar {{
             width: 8px;
         }}
@@ -269,6 +474,99 @@ def set_custom_theme():
         
         ::-webkit-scrollbar-thumb:hover {{
             background: #3a5a8f;
+        }}
+        
+        .message-sent-premium {{
+            background: linear-gradient(135deg, #4a6fa5, #166088);
+            color: white;
+            padding: 1rem;
+            border-radius: 15px 15px 5px 15px;
+            margin: 0.5rem 0;
+            max-width: 80%;
+            margin-left: auto;
+        }}
+        
+        .message-received-premium {{
+            background: #f0f0f0;
+            color: #333;
+            padding: 1rem;
+            border-radius: 15px 15px 15px 5px;
+            margin: 0.5rem 0;
+            max-width: 80%;
+        }}
+        
+        @media (prefers-color-scheme: dark) {{
+            .message-received-premium {{
+                background: #2d2d44;
+                color: #f0f2f6;
+            }}
+        }}
+        
+        .attachment-preview {{
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background: rgba(0,0,0,0.05);
+            border-radius: 8px;
+            display: inline-block;
+        }}
+        
+        @media (prefers-color-scheme: dark) {{
+            .attachment-preview {{
+                background: rgba(255,255,255,0.1);
+            }}
+        }}
+        
+        .reset-success {{
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }}
+        
+        .reset-error {{
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }}
+        
+        @media (prefers-color-scheme: dark) {{
+            .reset-success {{
+                background: #1e3a2f;
+                border-color: #2d6a4f;
+                color: #95d5b2;
+            }}
+            .reset-error {{
+                background: #3a1e1e;
+                border-color: #6a2d2d;
+                color: #f5a3a3;
+            }}
+        }}
+        
+        .password-requirements {{
+            font-size: 0.9rem;
+            color: #666;
+            margin: 5px 0;
+            padding-left: 20px;
+        }}
+        
+        @media (prefers-color-scheme: dark) {{
+            .password-requirements {{
+                color: #aaa;
+            }}
+        }}
+        
+        .password-requirements li {{
+            list-style: none;
+        }}
+        
+        .password-requirements li:before {{
+            content: "• ";
+            color: #4a6fa5;
         }}
     </style>
     """, unsafe_allow_html=True)
@@ -425,6 +723,7 @@ class Database:
         try:
             self.cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
             
+            # Table utilisateurs
             self.cursor.execute("""
                 SELECT COUNT(*) as cnt FROM information_schema.tables 
                 WHERE table_schema = 'ecocapital' AND table_name = 'utilisateurs'
@@ -450,6 +749,21 @@ class Database:
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
                 """)
             
+            # Table password_resets
+            self.cursor.execute("""
+                CREATE TABLE IF NOT EXISTS password_resets (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    email VARCHAR(255) NOT NULL,
+                    token VARCHAR(36) NOT NULL UNIQUE,
+                    expiry_date TIMESTAMP NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    used BOOLEAN DEFAULT FALSE,
+                    INDEX idx_token (token),
+                    INDEX idx_email (email)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """)
+            
+            # Autres tables
             tables_sql = [
                 """CREATE TABLE IF NOT EXISTS avi_requests (
                     id VARCHAR(50) NOT NULL PRIMARY KEY,
@@ -508,19 +822,126 @@ class Database:
             print(f"❌ Erreur: {e}")
             st.error(f"Erreur MySQL: {e}")
 
+    # ==================== GESTION DES MOTS DE PASSE ====================
+    def create_password_reset_token(self, email):
+        """Crée un token de réinitialisation de mot de passe"""
+        try:
+            # Vérifier si l'utilisateur existe
+            user = self.get_user_by_email(email)
+            if not user:
+                return False, "Aucun compte trouvé avec cet email"
+            
+            # Générer un token unique
+            token = str(uuid.uuid4())
+            expiry = datetime.now() + timedelta(hours=24)
+            
+            # Supprimer les anciens tokens pour cet email
+            self.cursor.execute(
+                "DELETE FROM password_resets WHERE email = %s",
+                (email,)
+            )
+            
+            # Créer le nouveau token
+            self.cursor.execute(
+                """INSERT INTO password_resets 
+                   (email, token, expiry_date, created_at) 
+                   VALUES (%s, %s, %s, NOW())""",
+                (email, token, expiry)
+            )
+            self.connection.commit()
+            return True, token
+        except Error as e:
+            return False, str(e)
+
+    def verify_reset_token(self, token):
+        """Vérifie si un token de réinitialisation est valide"""
+        try:
+            self.cursor.execute(
+                """SELECT email, expiry_date, used 
+                   FROM password_resets 
+                   WHERE token = %s AND used = FALSE 
+                   AND expiry_date > NOW()""",
+                (token,)
+            )
+            result = self.cursor.fetchone()
+            if result:
+                return True, result['email']
+            return False, "Token invalide ou expiré"
+        except Error as e:
+            return False, str(e)
+
+    def reset_password(self, token, new_password):
+        """Réinitialise le mot de passe avec un token"""
+        try:
+            # Vérifier le token
+            valid, email = self.verify_reset_token(token)
+            if not valid:
+                return False, email
+            
+            # Hasher le nouveau mot de passe
+            hashed_pw = hashlib.sha256(new_password.encode()).hexdigest()
+            
+            # Mettre à jour le mot de passe
+            self.cursor.execute(
+                "UPDATE utilisateurs SET password = %s WHERE email = %s",
+                (hashed_pw, email)
+            )
+            
+            # Marquer le token comme utilisé
+            self.cursor.execute(
+                "UPDATE password_resets SET used = TRUE WHERE token = %s",
+                (token,)
+            )
+            
+            self.connection.commit()
+            return True, email
+        except Error as e:
+            return False, str(e)
+
+    def update_password(self, user_id, current_password, new_password):
+        """Met à jour le mot de passe d'un utilisateur connecté"""
+        try:
+            # Vérifier le mot de passe actuel
+            user = self.get_user_by_id(user_id)
+            if not user:
+                return False, "Utilisateur non trouvé"
+            
+            current_hashed = hashlib.sha256(current_password.encode()).hexdigest()
+            if user['password'] != current_hashed:
+                return False, "Mot de passe actuel incorrect"
+            
+            # Hasher le nouveau mot de passe
+            new_hashed = hashlib.sha256(new_password.encode()).hexdigest()
+            
+            # Mettre à jour
+            self.cursor.execute(
+                "UPDATE utilisateurs SET password = %s WHERE id = %s",
+                (new_hashed, user_id)
+            )
+            self.connection.commit()
+            return True, user['email']
+        except Error as e:
+            return False, str(e)
+
+    def get_user_by_id(self, user_id):
+        """Récupère un utilisateur par son ID"""
+        try:
+            self.cursor.execute("SELECT * FROM utilisateurs WHERE id = %s", (user_id,))
+            return self.cursor.fetchone()
+        except Error:
+            return None
+
+    # ==================== MÉTHODES EXISTANTES ====================
     def send_message_with_attachment(self, user_id, sender, content, file_bytes, filename, file_type):
-        """Envoie un message avec pièce jointe"""
         try:
             msg_id = str(uuid.uuid4())
             
-            # Vérifier si les colonnes attachment existent
             self.cursor.execute("""
                 SHOW COLUMNS FROM messages 
                 WHERE Field IN ('attachment', 'attachment_filename', 'attachment_type')
             """)
             existing_cols = [col['Field'] for col in self.cursor.fetchall()]
             
-            # Ajouter les colonnes si nécessaire
             if 'attachment' not in existing_cols:
                 self.cursor.execute("ALTER TABLE messages ADD COLUMN attachment LONGBLOB")
             if 'attachment_filename' not in existing_cols:
@@ -530,7 +951,6 @@ class Database:
             
             self.connection.commit()
             
-            # Insérer le message avec la pièce jointe
             self.cursor.execute("""
                 INSERT INTO messages (id, user_id, sender, content, attachment, attachment_filename, attachment_type, timestamp)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
@@ -542,7 +962,6 @@ class Database:
             return False, str(e)
 
     def get_user_messages_with_attachments(self, user_id, limit=50):
-        """Récupère les messages d'un utilisateur avec leurs pièces jointes"""
         try:
             self._ensure_connection()
             self.cursor.execute("""
@@ -552,7 +971,6 @@ class Database:
             """, (user_id, limit))
             msgs = self.cursor.fetchall()
             
-            # Marquer les messages comme lus
             self.cursor.execute("""
                 UPDATE messages SET is_read=TRUE 
                 WHERE user_id=%s AND sender='support' AND is_read=FALSE
@@ -563,7 +981,6 @@ class Database:
         except Error:
             return []
 
-    # ==================== UTILISATEURS ====================
     def create_user(self, first_name, last_name, email, phone, password):
         try:
             user_id = str(uuid.uuid4())
@@ -604,7 +1021,6 @@ class Database:
         except Error:
             return None
 
-    # ==================== AVI ====================
     def create_avi_request(self, user_id, user_email, request_data):
         try:
             date_str = datetime.now().strftime('%Y%m%d')
@@ -647,7 +1063,6 @@ class Database:
                 stats[key] = 0
         return stats
 
-    # ==================== MESSAGES ====================
     def create_conversation(self, user_id, name):
         try:
             conv_id = str(uuid.uuid4())
@@ -706,12 +1121,9 @@ class Database:
             return False, str(e)
 
     def get_user_avis(self, user_id):
-        """Récupère uniquement les AVI associées à l'utilisateur connecté"""
         try:
-            # S'assurer que la connexion est active
             self._ensure_connection()
             
-            # 1. Récupérer les informations de l'utilisateur
             self.cursor.execute('''
             SELECT id, first_name, last_name, email FROM utilisateurs WHERE id = %s
             ''', (user_id,))
@@ -723,9 +1135,6 @@ class Database:
             user_first = user.get('first_name', '')
             user_last = user.get('last_name', '')
             
-            print(f"Recherche AVI pour: {user_first} {user_last}")
-            
-            # 2. Rechercher les AVI
             query = '''
             SELECT 
                 reference,
@@ -753,12 +1162,10 @@ class Database:
             self.cursor.execute(query, (search_pattern1, search_pattern2))
             results = self.cursor.fetchall()
             
-            print(f"AVI trouvées: {len(results)}")
             return results
             
         except Error as e:
             print(f"Erreur get_user_avis: {e}")
-            # Tentative de reconnexion et réessai
             try:
                 self._ensure_connection()
                 self.cursor.execute(query, (search_pattern1, search_pattern2))
@@ -791,6 +1198,286 @@ def load_lottieurl(url):
         return None
 
 # ============================================================
+# PAGE MOT DE PASSE OUBLIÉ
+# ============================================================
+def forgot_password_page():
+    """Page pour demander la réinitialisation du mot de passe"""
+    set_custom_theme()
+    
+    st.markdown("""
+    <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #4a6fa5, #166088); border-radius: 20px; margin-bottom: 2rem;">
+        <h1 style="color: white; font-size: 2rem;">🔑 Mot de passe oublié</h1>
+        <p style="color: rgba(255,255,255,0.9);">Recevez un lien de réinitialisation par email</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        st.markdown('<div class="login-container">', unsafe_allow_html=True)
+        
+        with st.form("forgot_password_form"):
+            email = st.text_input("Email", placeholder="exemple@email.com")
+            
+            st.markdown("""
+            <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 10px;">
+                Nous vous enverrons un lien pour réinitialiser votre mot de passe.
+            </div>
+            """, unsafe_allow_html=True)
+            
+            submitted = st.form_submit_button("📧 Envoyer le lien de réinitialisation", use_container_width=True)
+            
+            if submitted:
+                if email:
+                    # Valider le format de l'email
+                    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+                    if not re.match(email_pattern, email):
+                        st.error("⚠️ Format d'email invalide.")
+                    else:
+                        # Créer le token
+                        success, result = db.create_password_reset_token(email)
+                        if success:
+                            # Récupérer le nom de l'utilisateur
+                            user = db.get_user_by_email(email)
+                            user_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() or "Utilisateur"
+                            
+                            # Envoyer l'email
+                            email_sent, message = send_reset_password_email(email, result, user_name)
+                            
+                            if email_sent:
+                                st.success("✅ Un lien de réinitialisation a été envoyé à votre adresse email.")
+                                st.info("📧 Consultez votre boîte mail (et vos spams) pour réinitialiser votre mot de passe.")
+                                
+                                if st.button("⬅️ Retour à la connexion"):
+                                    st.session_state.page = "login"
+                                    st.rerun()
+                            else:
+                                st.error(f"❌ Erreur lors de l'envoi de l'email: {message}")
+                                st.warning("Veuillez vérifier la configuration email ou réessayer plus tard.")
+                        else:
+                            st.error(f"❌ {result}")
+                else:
+                    st.warning("Veuillez saisir votre adresse email.")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        if st.button("⬅️ Retour à la page de connexion", use_container_width=True):
+            st.session_state.page = "login"
+            st.rerun()
+
+# ============================================================
+# PAGE RÉINITIALISATION DU MOT DE PASSE
+# ============================================================
+def reset_password_page():
+    """Page pour définir un nouveau mot de passe via token"""
+    set_custom_theme()
+    
+    # Récupérer le token de l'URL
+    query_params = st.query_params
+    token = query_params.get("reset_token", [None])[0]
+    
+    if not token:
+        st.error("❌ Token de réinitialisation manquant.")
+        if st.button("⬅️ Retour à la connexion"):
+            st.session_state.page = "login"
+            st.rerun()
+        return
+    
+    # Vérifier la validité du token
+    valid, email = db.verify_reset_token(token)
+    
+    if not valid:
+        st.error(f"❌ {email}")
+        st.info("💡 Le lien a peut-être expiré. Faites une nouvelle demande de réinitialisation.")
+        if st.button("⬅️ Retour à la connexion"):
+            st.session_state.page = "login"
+            st.rerun()
+        return
+    
+    # Récupérer les infos de l'utilisateur
+    user = db.get_user_by_email(email)
+    user_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() if user else "Utilisateur"
+    
+    st.markdown(f"""
+    <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #4a6fa5, #166088); border-radius: 20px; margin-bottom: 2rem;">
+        <h1 style="color: white; font-size: 2rem;">🔐 Nouveau mot de passe</h1>
+        <p style="color: rgba(255,255,255,0.9);">Bonjour {user_name}</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        st.markdown('<div class="login-container">', unsafe_allow_html=True)
+        
+        with st.form("reset_password_form"):
+            new_password = st.text_input("Nouveau mot de passe", type="password", placeholder="Min 8 caractères")
+            confirm_password = st.text_input("Confirmer le mot de passe", type="password", placeholder="Répétez le mot de passe")
+            
+            st.markdown("""
+            <div class="password-requirements">
+                <strong>Exigences :</strong>
+                <ul>
+                    <li>Minimum 8 caractères</li>
+                    <li>Au moins une majuscule</li>
+                    <li>Au moins un chiffre</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            submitted = st.form_submit_button("🔑 Réinitialiser le mot de passe", use_container_width=True)
+            
+            if submitted:
+                # Validation du mot de passe
+                if not new_password:
+                    st.error("⚠️ Veuillez saisir un mot de passe.")
+                elif len(new_password) < 8:
+                    st.error("⚠️ Le mot de passe doit contenir au moins 8 caractères.")
+                elif not re.search(r'[A-Z]', new_password):
+                    st.error("⚠️ Le mot de passe doit contenir au moins une majuscule.")
+                elif not re.search(r'[0-9]', new_password):
+                    st.error("⚠️ Le mot de passe doit contenir au moins un chiffre.")
+                elif new_password != confirm_password:
+                    st.error("⚠️ Les mots de passe ne correspondent pas.")
+                else:
+                    success, result = db.reset_password(token, new_password)
+                    if success:
+                        # Envoyer une notification de changement de mot de passe
+                        send_password_changed_notification(email, user_name)
+                        
+                        st.success("✅ Mot de passe réinitialisé avec succès !")
+                        st.balloons()
+                        st.info("🔑 Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.")
+                        if st.button("🔑 Aller à la connexion"):
+                            st.session_state.page = "login"
+                            st.rerun()
+                    else:
+                        st.error(f"❌ {result}")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+
+# ============================================================
+# PAGE MODIFICATION DU MOT DE PASSE (UTILISATEUR CONNECTÉ)
+# ============================================================
+def change_password_page():
+    """Page pour modifier le mot de passe d'un utilisateur connecté"""
+    set_custom_theme()
+    
+    st.markdown("""
+    <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #4a6fa5, #166088); border-radius: 20px; margin-bottom: 2rem;">
+        <h1 style="color: white; font-size: 2rem;">🔒 Changer mon mot de passe</h1>
+        <p style="color: rgba(255,255,255,0.9);">Mettez à jour votre mot de passe en toute sécurité</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        st.markdown('<div class="login-container">', unsafe_allow_html=True)
+        
+        with st.form("change_password_form"):
+            current_password = st.text_input("Mot de passe actuel", type="password", placeholder="Votre mot de passe actuel")
+            new_password = st.text_input("Nouveau mot de passe", type="password", placeholder="Min 8 caractères")
+            confirm_password = st.text_input("Confirmer le nouveau mot de passe", type="password", placeholder="Répétez le nouveau mot de passe")
+            
+            st.markdown("""
+            <div class="password-requirements">
+                <strong>Exigences :</strong>
+                <ul>
+                    <li>Minimum 8 caractères</li>
+                    <li>Au moins une majuscule</li>
+                    <li>Au moins un chiffre</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            submitted = st.form_submit_button("🔑 Changer le mot de passe", use_container_width=True)
+            
+            if submitted:
+                # Validation
+                if not current_password:
+                    st.warning("Veuillez saisir votre mot de passe actuel.")
+                elif not new_password:
+                    st.warning("Veuillez saisir un nouveau mot de passe.")
+                elif len(new_password) < 8:
+                    st.warning("⚠️ Le nouveau mot de passe doit contenir au moins 8 caractères.")
+                elif not re.search(r'[A-Z]', new_password):
+                    st.warning("⚠️ Le nouveau mot de passe doit contenir au moins une majuscule.")
+                elif not re.search(r'[0-9]', new_password):
+                    st.warning("⚠️ Le nouveau mot de passe doit contenir au moins un chiffre.")
+                elif new_password != confirm_password:
+                    st.warning("⚠️ Les nouveaux mots de passe ne correspondent pas.")
+                else:
+                    # Mettre à jour le mot de passe
+                    success, result = db.update_password(
+                        st.session_state.user['id'],
+                        current_password,
+                        new_password
+                    )
+                    
+                    if success:
+                        # Envoyer une notification
+                        user_name = f"{st.session_state.user.get('first_name', '')} {st.session_state.user.get('last_name', '')}".strip() or "Utilisateur"
+                        send_password_changed_notification(st.session_state.user['email'], user_name)
+                        
+                        st.success("✅ Mot de passe changé avec succès !")
+                        st.balloons()
+                        st.info("🔑 Votre mot de passe a été mis à jour.")
+                    else:
+                        st.error(f"❌ {result}")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+
+# ============================================================
+# PAGE PARAMÈTRES DU COMPTE
+# ============================================================
+def account_settings_page():
+    """Page des paramètres du compte avec option de changement de mot de passe"""
+    set_custom_theme()
+    
+    st.markdown("""
+    <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #4a6fa5, #166088); border-radius: 20px; margin-bottom: 2rem;">
+        <h1 style="color: white; font-size: 2rem;">⚙️ Paramètres du compte</h1>
+        <p style="color: rgba(255,255,255,0.9);">Gérez vos informations personnelles et votre sécurité</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Informations du compte
+    st.markdown("### 👤 Informations personnelles")
+    
+    user = st.session_state.user
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.info(f"**Prénom:** {user.get('first_name', 'N/A')}")
+        st.info(f"**Nom:** {user.get('last_name', 'N/A')}")
+    
+    with col2:
+        st.info(f"**Email:** {user.get('email', 'N/A')}")
+        st.info(f"**Téléphone:** {user.get('phone', 'Non renseigné')}")
+    
+    st.markdown("---")
+    
+    # Section sécurité
+    st.markdown("### 🔒 Sécurité")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("🔑 Changer mon mot de passe", use_container_width=True):
+            st.session_state.page = "change_password"
+            st.rerun()
+    
+    with col2:
+        st.info("💡 Nous vous recommandons de changer régulièrement votre mot de passe.")
+    
+    st.markdown("---")
+    st.markdown("### 🗑️ Gestion du compte")
+    
+    if st.button("⚠️ Supprimer mon compte", use_container_width=True):
+        st.warning("🚧 Cette fonctionnalité sera disponible prochainement.")
+
+# ============================================================
 # PAGE D'AUTHENTIFICATION
 # ============================================================
 def auth_page():
@@ -821,6 +1508,16 @@ def auth_page():
                 email = st.text_input("Email", placeholder="exemple@email.com")
                 password = st.text_input("Mot de passe", type="password", placeholder="..........")
                 
+                # Lien "Mot de passe oublié"
+                st.markdown("""
+                <div style="text-align: right; margin: 5px 0;">
+                    <a href="#" onclick="alert('Redirection vers la page de réinitialisation')" 
+                       style="color: #ffffff; text-decoration: none; font-size: 0.9rem; opacity: 0.9;">
+                        Mot de passe oublié ?
+                    </a>
+                </div>
+                """, unsafe_allow_html=True)
+                
                 if st.form_submit_button("Se connecter", use_container_width=True):
                     if email and password:
                         user = db.authenticate_user(email, password)
@@ -831,8 +1528,13 @@ def auth_page():
                             st.rerun()
                         else:
                             st.error("Email ou mot de passe incorrect")
-
-                st.page_link("https://ecocapitale-bm.streamlit.app/", label="EcoCapital")                     
+            
+            # Bouton "Mot de passe oublié"
+            if st.button("🔑 Mot de passe oublié ?", use_container_width=True):
+                st.session_state.page = "forgot_password"
+                st.rerun()
+            
+            st.page_link("https://ecocapitale-bm.streamlit.app/", label="EcoCapital")
         
         with tab2:
             with st.form("register_form"):
@@ -1090,7 +1792,7 @@ def avi_request_page():
                         st.error("⚠️ Veuillez confirmer les informations")
 
 # ============================================================
-# PAGE MES AVI (DESIGN AMÉLIORÉ) - VERSION COMPLÈTE
+# PAGE MES AVI
 # ============================================================
 def my_avi_page():
     set_custom_theme()
@@ -1161,7 +1863,6 @@ def my_avi_page():
                 pdf = FPDF()
                 pdf.add_page()
                 
-                # Logos en arrière-plan
                 try:
                     logo_path = "assets/logo.png"
                     if os.path.exists(logo_path):
@@ -1181,7 +1882,6 @@ def my_avi_page():
                 except:
                     pass
                 
-                # En-tête
                 pdf.set_font('Arial', 'B', 16)
                 pdf.cell(0, 30, 'ATTESTATION DE VIREMENT IRREVOCABLE', 0, 1, 'C')
                 
@@ -1318,34 +2018,15 @@ def my_avi_page():
                 except:
                     pass
                 
-                
-                # À la fin de la fonction, au lieu de :
-                # try:
-                #     output = pdf.output()
-                #     if isinstance(output, str):
-                #         output = output.encode('latin1')
-                # except TypeError:
-                #     output = pdf.output(dest='S')
-                #     if isinstance(output, str):
-                #         output = output.encode('latin1')
-                # 
-                # return output
-        #except Exception as e:
-        #        print(f"Erreur generate_avi_pdf: {e}")
-        #        return None
-                            
-            # Utilisez ce code corrigé :
                 try:
-                    # Méthode 1 : Utiliser buffer en mémoire
                     output = pdf.output(dest='S')
                     if isinstance(output, str):
                         output = output.encode('latin1')
                     elif isinstance(output, bytearray):
-                        output = bytes(output)  # Convertir bytearray en bytes
+                        output = bytes(output)
                     return output
                 except Exception as e:
                     print(f"Erreur lors de la génération du PDF: {e}")
-                    # Méthode de secours : écrire dans un fichier temporaire
                     import tempfile
                     with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
                         pdf.output(tmp.name)
@@ -1415,51 +2096,10 @@ def my_avi_page():
                     st.error(f"Erreur lors de la génération du PDF: {str(e)}")
 
 # ============================================================
-# PAGE MESSAGES (DESIGN AMÉLIORÉ)
+# PAGE MESSAGES
 # ============================================================
 def messages_page():
     set_custom_theme()
-    
-    st.markdown("""
-    <style>
-    .message-sent-premium {
-        background: linear-gradient(135deg, #4a6fa5, #166088);
-        color: white;
-        padding: 1rem;
-        border-radius: 15px 15px 5px 15px;
-        margin: 0.5rem 0;
-        max-width: 80%;
-        margin-left: auto;
-    }
-    
-    .message-received-premium {
-        background: #f0f0f0;
-        color: #333;
-        padding: 1rem;
-        border-radius: 15px 15px 15px 5px;
-        margin: 0.5rem 0;
-        max-width: 80%;
-    }
-    
-    .attachment-preview {
-        margin-top: 0.5rem;
-        padding: 0.5rem;
-        background: rgba(0,0,0,0.05);
-        border-radius: 8px;
-        display: inline-block;
-    }
-    
-    @media (prefers-color-scheme: dark) {
-        .message-received-premium {
-            background: #2d2d44;
-            color: #f0f2f6;
-        }
-        .attachment-preview {
-            background: rgba(255,255,255,0.1);
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
     
     st.markdown("""
     <div class="animate-fadeInDown" style="margin-bottom: 2rem;">
@@ -1662,11 +2302,28 @@ def main():
         st.session_state.user = None
     if 'menu' not in st.session_state:
         st.session_state.menu = "Dashboard"
+    if 'page' not in st.session_state:
+        st.session_state.page = "login"
 
+    # Gestion des pages d'authentification
     if not st.session_state.logged_in:
-        auth_page()
-        return
+        query_params = st.query_params
+        token = query_params.get("reset_token", [None])[0]
+        
+        if token:
+            reset_password_page()
+            return
+        elif st.session_state.page == "forgot_password":
+            forgot_password_page()
+            return
+        elif st.session_state.page == "change_password":
+            st.session_state.page = "login"
+            st.rerun()
+        else:
+            auth_page()
+            return
 
+    # Pages pour utilisateur connecté
     set_custom_theme()
     
     with st.sidebar:
@@ -1678,10 +2335,14 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
+        # Menu principal
+        menu_options = ["Dashboard", "Demande AVI", "Mes AVI", "Messages", "Paramètres", "Déconnexion"]
+        menu_icons = ["speedometer2", "file-text", "folder-check", "chat-dots", "gear", "box-arrow-right"]
+        
         menu = option_menu(
             None,
-            ["Dashboard", "Demande AVI", "Mes AVI", "Messages", "Déconnexion"],
-            icons=["speedometer2", "file-text", "folder-check", "chat-dots", "box-arrow-right"],
+            menu_options,
+            icons=menu_icons,
             default_index=0,
             styles={
                 "container": {"padding": "0!important"},
@@ -1694,15 +2355,22 @@ def main():
         if menu == "Déconnexion":
             st.session_state.logged_in = False
             st.session_state.user = None
+            st.session_state.page = "login"
             st.rerun()
         
         st.session_state.menu = menu
 
+    # Gestion des pages
+    if st.session_state.page == "change_password":
+        change_password_page()
+        return
+    
     pages = {
         "Dashboard": dashboard_page,
         "Demande AVI": avi_request_page,
         "Mes AVI": my_avi_page,
         "Messages": messages_page,
+        "Paramètres": account_settings_page,
     }
     
     pages.get(st.session_state.menu, dashboard_page)()
