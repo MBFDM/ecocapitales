@@ -25,48 +25,94 @@ import re
 # ============================================================
 # Inscrivez-vous sur https://mailtrap.io/ et créez un compte
 # Récupérez vos identifiants dans la section "SMTP Settings"
-EMAIL_CONFIG = {
-    'smtp_server': 'live.smtp.mailtrap.io',  # Serveur Mailtrap
-    'smtp_port': 587,  # Port Mailtrap (ou 587 selon votre plan)
-    'smtp_username': 'api',  # À remplacer
-    'smtp_password': 'dba914abfb2e8ee4d29c63c84e62ce16',  # À remplacer
-    'from_email': 'noreply@demomailtrap.com',
-    'from_name': 'EcoCapital - Support'
-}
+#EMAIL_CONFIG = {
+#    'smtp_server': 'live.smtp.mailtrap.io',  # Serveur Mailtrap
+#    'smtp_port': 587,  # Port Mailtrap (ou 587 selon votre plan)
+#    'smtp_username': 'api',  # À remplacer
+#    'smtp_password': 'dba914abfb2e8ee4d29c63c84e62ce16',  # À remplacer
+#    'from_email': 'noreply@demomailtrap.com',
+#    'from_name': 'EcoCapital - Support'
+#}
 
 # ============================================================
 # FONCTIONS D'ENVOI D'EMAIL AVEC MAILTRAP
 # ============================================================
-def send_email(to_email, subject, html_content, text_content=""):
-    """Envoie un email via Mailtrap (environnement de test)"""
-    try:
+#def send_email(to_email, subject, html_content, text_content=""):
+#    """Envoie un email via Mailtrap (environnement de test)"""
+#    try:
         # Créer le message
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = subject
-        msg['From'] = f"{EMAIL_CONFIG['from_name']} <{EMAIL_CONFIG['from_email']}>"
-        msg['To'] = to_email
+#        msg = MIMEMultipart('alternative')
+#        msg['Subject'] = subject
+#        msg['From'] = f"{EMAIL_CONFIG['from_name']} <{EMAIL_CONFIG['from_email']}>"
+#        msg['To'] = to_email
         
         # Ajouter les versions texte et HTML
-        if text_content:
-            part_text = MIMEText(text_content, 'plain')
-            msg.attach(part_text)
-        
-        part_html = MIMEText(html_content, 'html')
-        msg.attach(part_html)
+#        if text_content:
+#            part_text = MIMEText(text_content, 'plain')
+#            msg.attach(part_text)
+#        
+#        part_html = MIMEText(html_content, 'html')
+#        msg.attach(part_html)
         
         # Connexion au serveur Mailtrap
-        with smtplib.SMTP(EMAIL_CONFIG['smtp_server'], EMAIL_CONFIG['smtp_port']) as server:
-            server.starttls()
-            server.login(EMAIL_CONFIG['smtp_username'], EMAIL_CONFIG['smtp_password'])
-            server.send_message(msg)
+#        with smtplib.SMTP(EMAIL_CONFIG['smtp_server'], EMAIL_CONFIG['smtp_port']) as server:
+#            server.starttls()
+#            server.login(EMAIL_CONFIG['smtp_username'], EMAIL_CONFIG['smtp_password'])
+#            server.send_message(msg)
         
-        print(f"✅ Email envoyé à {to_email} via Mailtrap")
-        return True, "Email envoyé avec succès (via Mailtrap)"
+#        print(f"✅ Email envoyé à {to_email} via Mailtrap")
+#        return True, "Email envoyé avec succès (via Mailtrap)"
         
-    except Exception as e:
-        print(f"❌ Erreur d'envoi d'email via Mailtrap: {e}")
-        return False, str(e)
+#    except Exception as e:
+#        print(f"❌ Erreur d'envoi d'email via Mailtrap: {e}")
+#        return False, str(e)
+import requests
 
+# ============================================================
+# CONFIGURATION API MAILTRAP
+# ============================================================
+MAILTRAP_API_KEY = "dba914abfb2e8ee4d29c63c84e62ce16"  # Récupérez dans Email Sending -> API
+MAILTRAP_INBOX_ID = "2807750"  # Récupérez dans l'URL de votre inbox
+
+def send_email_api(to_email, subject, html_content, text_content=""):
+    """Envoie un email via l'API Mailtrap (recommandé)"""
+    try:
+        url = f"https://send.api.mailtrap.io/api/send"
+        
+        headers = {
+            "Authorization": f"Bearer {MAILTRAP_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "from": {
+                "email": "noreply@demomailtrap.com",
+                "name": "EcoCapital - Support"
+            },
+            "to": [
+                {
+                    "email": to_email
+                }
+            ],
+            "subject": subject,
+            "html": html_content,
+            "text": text_content or html_content.replace('<br>', '\n').replace('</p>', '\n').replace('<p>', '').replace('</div>', '')
+        }
+        
+        response = requests.post(url, json=data, headers=headers)
+        
+        if response.status_code == 200:
+            print(f"✅ Email envoyé à {to_email} via API Mailtrap")
+            return True, "Email envoyé avec succès"
+        else:
+            error_msg = response.json().get('error', {}).get('message', 'Erreur inconnue')
+            print(f"❌ Erreur API Mailtrap: {error_msg}")
+            return False, error_msg
+            
+    except Exception as e:
+        print(f"❌ Erreur d'envoi d'email: {e}")
+        return False, str(e)
+        
 def send_reset_password_email(email, token, user_name=""):
     """Envoie l'email de réinitialisation du mot de passe via Mailtrap"""
     # Construction du lien de réinitialisation
