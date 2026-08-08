@@ -26,11 +26,11 @@ import re
 # Inscrivez-vous sur https://mailtrap.io/ et créez un compte
 # Récupérez vos identifiants dans la section "SMTP Settings"
 EMAIL_CONFIG = {
-    'smtp_server': 'sandbox.smtp.mailtrap.io',  # Serveur Mailtrap
-    'smtp_port': 2525,  # Port Mailtrap (ou 587 selon votre plan)
+    'smtp_server': 'live.smtp.mailtrap.io',  # Serveur Mailtrap
+    'smtp_port': 587,  # Port Mailtrap (ou 587 selon votre plan)
     'smtp_username': 'b48ea7f93a584e',  # À remplacer
     'smtp_password': '073c6079da2e08',  # À remplacer
-    'from_email': 'noreply@ecocapital.com',
+    'from_email': 'bayonnefrederic09@gmail.com',
     'from_name': 'EcoCapital - Support'
 }
 
