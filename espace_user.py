@@ -16,6 +16,7 @@ import qrcode
 from io import BytesIO
 from PIL import Image
 import random
+import re
 
 # ============================================================
 # CONFIGURATION STREAMLIT
@@ -28,10 +29,230 @@ st.set_page_config(
 )
 
 # ============================================================
-# CSS STYLE (IDENTIQUE AU CODE 2)
+# LISTE DES PAYS AVEC INDICATIFS ET DRAPEAUX
+# ============================================================
+PAYS_INDICATIFS = [
+    {"pays": "Afghanistan", "indicatif": "+93", "drapeau": "🇦🇫", "code": "AF"},
+    {"pays": "Afrique du Sud", "indicatif": "+27", "drapeau": "🇿🇦", "code": "ZA"},
+    {"pays": "Albanie", "indicatif": "+355", "drapeau": "🇦🇱", "code": "AL"},
+    {"pays": "Algérie", "indicatif": "+213", "drapeau": "🇩🇿", "code": "DZ"},
+    {"pays": "Allemagne", "indicatif": "+49", "drapeau": "🇩🇪", "code": "DE"},
+    {"pays": "Andorre", "indicatif": "+376", "drapeau": "🇦🇩", "code": "AD"},
+    {"pays": "Angola", "indicatif": "+244", "drapeau": "🇦🇴", "code": "AO"},
+    {"pays": "Antigua-et-Barbuda", "indicatif": "+1268", "drapeau": "🇦🇬", "code": "AG"},
+    {"pays": "Arabie saoudite", "indicatif": "+966", "drapeau": "🇸🇦", "code": "SA"},
+    {"pays": "Argentine", "indicatif": "+54", "drapeau": "🇦🇷", "code": "AR"},
+    {"pays": "Arménie", "indicatif": "+374", "drapeau": "🇦🇲", "code": "AM"},
+    {"pays": "Australie", "indicatif": "+61", "drapeau": "🇦🇺", "code": "AU"},
+    {"pays": "Autriche", "indicatif": "+43", "drapeau": "🇦🇹", "code": "AT"},
+    {"pays": "Azerbaïdjan", "indicatif": "+994", "drapeau": "🇦🇿", "code": "AZ"},
+    {"pays": "Bahamas", "indicatif": "+1242", "drapeau": "🇧🇸", "code": "BS"},
+    {"pays": "Bahreïn", "indicatif": "+973", "drapeau": "🇧🇭", "code": "BH"},
+    {"pays": "Bangladesh", "indicatif": "+880", "drapeau": "🇧🇩", "code": "BD"},
+    {"pays": "Barbade", "indicatif": "+1246", "drapeau": "🇧🇧", "code": "BB"},
+    {"pays": "Belgique", "indicatif": "+32", "drapeau": "🇧🇪", "code": "BE"},
+    {"pays": "Belize", "indicatif": "+501", "drapeau": "🇧🇿", "code": "BZ"},
+    {"pays": "Bénin", "indicatif": "+229", "drapeau": "🇧🇯", "code": "BJ"},
+    {"pays": "Bhoutan", "indicatif": "+975", "drapeau": "🇧🇹", "code": "BT"},
+    {"pays": "Biélorussie", "indicatif": "+375", "drapeau": "🇧🇾", "code": "BY"},
+    {"pays": "Birmanie", "indicatif": "+95", "drapeau": "🇲🇲", "code": "MM"},
+    {"pays": "Bolivie", "indicatif": "+591", "drapeau": "🇧🇴", "code": "BO"},
+    {"pays": "Bosnie-Herzégovine", "indicatif": "+387", "drapeau": "🇧🇦", "code": "BA"},
+    {"pays": "Botswana", "indicatif": "+267", "drapeau": "🇧🇼", "code": "BW"},
+    {"pays": "Brésil", "indicatif": "+55", "drapeau": "🇧🇷", "code": "BR"},
+    {"pays": "Brunei", "indicatif": "+673", "drapeau": "🇧🇳", "code": "BN"},
+    {"pays": "Bulgarie", "indicatif": "+359", "drapeau": "🇧🇬", "code": "BG"},
+    {"pays": "Burkina Faso", "indicatif": "+226", "drapeau": "🇧🇫", "code": "BF"},
+    {"pays": "Burundi", "indicatif": "+257", "drapeau": "🇧🇮", "code": "BI"},
+    {"pays": "Cambodge", "indicatif": "+855", "drapeau": "🇰🇭", "code": "KH"},
+    {"pays": "Cameroun", "indicatif": "+237", "drapeau": "🇨🇲", "code": "CM"},
+    {"pays": "Canada", "indicatif": "+1", "drapeau": "🇨🇦", "code": "CA"},
+    {"pays": "Cap-Vert", "indicatif": "+238", "drapeau": "🇨🇻", "code": "CV"},
+    {"pays": "Centrafrique", "indicatif": "+236", "drapeau": "🇨🇫", "code": "CF"},
+    {"pays": "Chili", "indicatif": "+56", "drapeau": "🇨🇱", "code": "CL"},
+    {"pays": "Chine", "indicatif": "+86", "drapeau": "🇨🇳", "code": "CN"},
+    {"pays": "Chypre", "indicatif": "+357", "drapeau": "🇨🇾", "code": "CY"},
+    {"pays": "Colombie", "indicatif": "+57", "drapeau": "🇨🇴", "code": "CO"},
+    {"pays": "Comores", "indicatif": "+269", "drapeau": "🇰🇲", "code": "KM"},
+    {"pays": "Congo (Brazzaville)", "indicatif": "+242", "drapeau": "🇨🇬", "code": "CG"},
+    {"pays": "Congo (Kinshasa)", "indicatif": "+243", "drapeau": "🇨🇩", "code": "CD"},
+    {"pays": "Corée du Nord", "indicatif": "+850", "drapeau": "🇰🇵", "code": "KP"},
+    {"pays": "Corée du Sud", "indicatif": "+82", "drapeau": "🇰🇷", "code": "KR"},
+    {"pays": "Costa Rica", "indicatif": "+506", "drapeau": "🇨🇷", "code": "CR"},
+    {"pays": "Côte d'Ivoire", "indicatif": "+225", "drapeau": "🇨🇮", "code": "CI"},
+    {"pays": "Croatie", "indicatif": "+385", "drapeau": "🇭🇷", "code": "HR"},
+    {"pays": "Cuba", "indicatif": "+53", "drapeau": "🇨🇺", "code": "CU"},
+    {"pays": "Danemark", "indicatif": "+45", "drapeau": "🇩🇰", "code": "DK"},
+    {"pays": "Djibouti", "indicatif": "+253", "drapeau": "🇩🇯", "code": "DJ"},
+    {"pays": "Égypte", "indicatif": "+20", "drapeau": "🇪🇬", "code": "EG"},
+    {"pays": "Émirats arabes unis", "indicatif": "+971", "drapeau": "🇦🇪", "code": "AE"},
+    {"pays": "Équateur", "indicatif": "+593", "drapeau": "🇪🇨", "code": "EC"},
+    {"pays": "Érythrée", "indicatif": "+291", "drapeau": "🇪🇷", "code": "ER"},
+    {"pays": "Espagne", "indicatif": "+34", "drapeau": "🇪🇸", "code": "ES"},
+    {"pays": "Estonie", "indicatif": "+372", "drapeau": "🇪🇪", "code": "EE"},
+    {"pays": "Eswatini", "indicatif": "+268", "drapeau": "🇸🇿", "code": "SZ"},
+    {"pays": "États-Unis", "indicatif": "+1", "drapeau": "🇺🇸", "code": "US"},
+    {"pays": "Éthiopie", "indicatif": "+251", "drapeau": "🇪🇹", "code": "ET"},
+    {"pays": "Fidji", "indicatif": "+679", "drapeau": "🇫🇯", "code": "FJ"},
+    {"pays": "Finlande", "indicatif": "+358", "drapeau": "🇫🇮", "code": "FI"},
+    {"pays": "France", "indicatif": "+33", "drapeau": "🇫🇷", "code": "FR"},
+    {"pays": "Gabon", "indicatif": "+241", "drapeau": "🇬🇦", "code": "GA"},
+    {"pays": "Gambie", "indicatif": "+220", "drapeau": "🇬🇲", "code": "GM"},
+    {"pays": "Géorgie", "indicatif": "+995", "drapeau": "🇬🇪", "code": "GE"},
+    {"pays": "Ghana", "indicatif": "+233", "drapeau": "🇬🇭", "code": "GH"},
+    {"pays": "Grèce", "indicatif": "+30", "drapeau": "🇬🇷", "code": "GR"},
+    {"pays": "Guatemala", "indicatif": "+502", "drapeau": "🇬🇹", "code": "GT"},
+    {"pays": "Guinée", "indicatif": "+224", "drapeau": "🇬🇳", "code": "GN"},
+    {"pays": "Guinée équatoriale", "indicatif": "+240", "drapeau": "🇬🇶", "code": "GQ"},
+    {"pays": "Guinée-Bissau", "indicatif": "+245", "drapeau": "🇬🇼", "code": "GW"},
+    {"pays": "Guyana", "indicatif": "+592", "drapeau": "🇬🇾", "code": "GY"},
+    {"pays": "Haïti", "indicatif": "+509", "drapeau": "🇭🇹", "code": "HT"},
+    {"pays": "Honduras", "indicatif": "+504", "drapeau": "🇭🇳", "code": "HN"},
+    {"pays": "Hongrie", "indicatif": "+36", "drapeau": "🇭🇺", "code": "HU"},
+    {"pays": "Îles Salomon", "indicatif": "+677", "drapeau": "🇸🇧", "code": "SB"},
+    {"pays": "Inde", "indicatif": "+91", "drapeau": "🇮🇳", "code": "IN"},
+    {"pays": "Indonésie", "indicatif": "+62", "drapeau": "🇮🇩", "code": "ID"},
+    {"pays": "Iran", "indicatif": "+98", "drapeau": "🇮🇷", "code": "IR"},
+    {"pays": "Irak", "indicatif": "+964", "drapeau": "🇮🇶", "code": "IQ"},
+    {"pays": "Irlande", "indicatif": "+353", "drapeau": "🇮🇪", "code": "IE"},
+    {"pays": "Islande", "indicatif": "+354", "drapeau": "🇮🇸", "code": "IS"},
+    {"pays": "Israël", "indicatif": "+972", "drapeau": "🇮🇱", "code": "IL"},
+    {"pays": "Italie", "indicatif": "+39", "drapeau": "🇮🇹", "code": "IT"},
+    {"pays": "Jamaïque", "indicatif": "+1876", "drapeau": "🇯🇲", "code": "JM"},
+    {"pays": "Japon", "indicatif": "+81", "drapeau": "🇯🇵", "code": "JP"},
+    {"pays": "Jordanie", "indicatif": "+962", "drapeau": "🇯🇴", "code": "JO"},
+    {"pays": "Kazakhstan", "indicatif": "+7", "drapeau": "🇰🇿", "code": "KZ"},
+    {"pays": "Kenya", "indicatif": "+254", "drapeau": "🇰🇪", "code": "KE"},
+    {"pays": "Kirghizistan", "indicatif": "+996", "drapeau": "🇰🇬", "code": "KG"},
+    {"pays": "Koweït", "indicatif": "+965", "drapeau": "🇰🇼", "code": "KW"},
+    {"pays": "Laos", "indicatif": "+856", "drapeau": "🇱🇦", "code": "LA"},
+    {"pays": "Lesotho", "indicatif": "+266", "drapeau": "🇱🇸", "code": "LS"},
+    {"pays": "Lettonie", "indicatif": "+371", "drapeau": "🇱🇻", "code": "LV"},
+    {"pays": "Liban", "indicatif": "+961", "drapeau": "🇱🇧", "code": "LB"},
+    {"pays": "Libéria", "indicatif": "+231", "drapeau": "🇱🇷", "code": "LR"},
+    {"pays": "Libye", "indicatif": "+218", "drapeau": "🇱🇾", "code": "LY"},
+    {"pays": "Liechtenstein", "indicatif": "+423", "drapeau": "🇱🇮", "code": "LI"},
+    {"pays": "Lituanie", "indicatif": "+370", "drapeau": "🇱🇹", "code": "LT"},
+    {"pays": "Luxembourg", "indicatif": "+352", "drapeau": "🇱🇺", "code": "LU"},
+    {"pays": "Macédoine du Nord", "indicatif": "+389", "drapeau": "🇲🇰", "code": "MK"},
+    {"pays": "Madagascar", "indicatif": "+261", "drapeau": "🇲🇬", "code": "MG"},
+    {"pays": "Malaisie", "indicatif": "+60", "drapeau": "🇲🇾", "code": "MY"},
+    {"pays": "Malawi", "indicatif": "+265", "drapeau": "🇲🇼", "code": "MW"},
+    {"pays": "Maldives", "indicatif": "+960", "drapeau": "🇲🇻", "code": "MV"},
+    {"pays": "Mali", "indicatif": "+223", "drapeau": "🇲🇱", "code": "ML"},
+    {"pays": "Malte", "indicatif": "+356", "drapeau": "🇲🇹", "code": "MT"},
+    {"pays": "Maroc", "indicatif": "+212", "drapeau": "🇲🇦", "code": "MA"},
+    {"pays": "Maurice", "indicatif": "+230", "drapeau": "🇲🇺", "code": "MU"},
+    {"pays": "Mauritanie", "indicatif": "+222", "drapeau": "🇲🇷", "code": "MR"},
+    {"pays": "Mexique", "indicatif": "+52", "drapeau": "🇲🇽", "code": "MX"},
+    {"pays": "Moldavie", "indicatif": "+373", "drapeau": "🇲🇩", "code": "MD"},
+    {"pays": "Monaco", "indicatif": "+377", "drapeau": "🇲🇨", "code": "MC"},
+    {"pays": "Mongolie", "indicatif": "+976", "drapeau": "🇲🇳", "code": "MN"},
+    {"pays": "Monténégro", "indicatif": "+382", "drapeau": "🇲🇪", "code": "ME"},
+    {"pays": "Mozambique", "indicatif": "+258", "drapeau": "🇲🇿", "code": "MZ"},
+    {"pays": "Namibie", "indicatif": "+264", "drapeau": "🇳🇦", "code": "NA"},
+    {"pays": "Népal", "indicatif": "+977", "drapeau": "🇳🇵", "code": "NP"},
+    {"pays": "Nicaragua", "indicatif": "+505", "drapeau": "🇳🇮", "code": "NI"},
+    {"pays": "Niger", "indicatif": "+227", "drapeau": "🇳🇪", "code": "NE"},
+    {"pays": "Nigéria", "indicatif": "+234", "drapeau": "🇳🇬", "code": "NG"},
+    {"pays": "Norvège", "indicatif": "+47", "drapeau": "🇳🇴", "code": "NO"},
+    {"pays": "Nouvelle-Zélande", "indicatif": "+64", "drapeau": "🇳🇿", "code": "NZ"},
+    {"pays": "Oman", "indicatif": "+968", "drapeau": "🇴🇲", "code": "OM"},
+    {"pays": "Ouganda", "indicatif": "+256", "drapeau": "🇺🇬", "code": "UG"},
+    {"pays": "Ouzbékistan", "indicatif": "+998", "drapeau": "🇺🇿", "code": "UZ"},
+    {"pays": "Pakistan", "indicatif": "+92", "drapeau": "🇵🇰", "code": "PK"},
+    {"pays": "Panama", "indicatif": "+507", "drapeau": "🇵🇦", "code": "PA"},
+    {"pays": "Papouasie-Nouvelle-Guinée", "indicatif": "+675", "drapeau": "🇵🇬", "code": "PG"},
+    {"pays": "Paraguay", "indicatif": "+595", "drapeau": "🇵🇾", "code": "PY"},
+    {"pays": "Pays-Bas", "indicatif": "+31", "drapeau": "🇳🇱", "code": "NL"},
+    {"pays": "Pérou", "indicatif": "+51", "drapeau": "🇵🇪", "code": "PE"},
+    {"pays": "Philippines", "indicatif": "+63", "drapeau": "🇵🇭", "code": "PH"},
+    {"pays": "Pologne", "indicatif": "+48", "drapeau": "🇵🇱", "code": "PL"},
+    {"pays": "Portugal", "indicatif": "+351", "drapeau": "🇵🇹", "code": "PT"},
+    {"pays": "Qatar", "indicatif": "+974", "drapeau": "🇶🇦", "code": "QA"},
+    {"pays": "République dominicaine", "indicatif": "+1849", "drapeau": "🇩🇴", "code": "DO"},
+    {"pays": "République tchèque", "indicatif": "+420", "drapeau": "🇨🇿", "code": "CZ"},
+    {"pays": "Roumanie", "indicatif": "+40", "drapeau": "🇷🇴", "code": "RO"},
+    {"pays": "Royaume-Uni", "indicatif": "+44", "drapeau": "🇬🇧", "code": "GB"},
+    {"pays": "Russie", "indicatif": "+7", "drapeau": "🇷🇺", "code": "RU"},
+    {"pays": "Rwanda", "indicatif": "+250", "drapeau": "🇷🇼", "code": "RW"},
+    {"pays": "Saint-Kitts-et-Nevis", "indicatif": "+1869", "drapeau": "🇰🇳", "code": "KN"},
+    {"pays": "Saint-Marin", "indicatif": "+378", "drapeau": "🇸🇲", "code": "SM"},
+    {"pays": "Sénégal", "indicatif": "+221", "drapeau": "🇸🇳", "code": "SN"},
+    {"pays": "Serbie", "indicatif": "+381", "drapeau": "🇷🇸", "code": "RS"},
+    {"pays": "Seychelles", "indicatif": "+248", "drapeau": "🇸🇨", "code": "SC"},
+    {"pays": "Sierra Leone", "indicatif": "+232", "drapeau": "🇸🇱", "code": "SL"},
+    {"pays": "Singapour", "indicatif": "+65", "drapeau": "🇸🇬", "code": "SG"},
+    {"pays": "Slovaquie", "indicatif": "+421", "drapeau": "🇸🇰", "code": "SK"},
+    {"pays": "Slovénie", "indicatif": "+386", "drapeau": "🇸🇮", "code": "SI"},
+    {"pays": "Somalie", "indicatif": "+252", "drapeau": "🇸🇴", "code": "SO"},
+    {"pays": "Soudan", "indicatif": "+249", "drapeau": "🇸🇩", "code": "SD"},
+    {"pays": "Sri Lanka", "indicatif": "+94", "drapeau": "🇱🇰", "code": "LK"},
+    {"pays": "Suède", "indicatif": "+46", "drapeau": "🇸🇪", "code": "SE"},
+    {"pays": "Suisse", "indicatif": "+41", "drapeau": "🇨🇭", "code": "CH"},
+    {"pays": "Suriname", "indicatif": "+597", "drapeau": "🇸🇷", "code": "SR"},
+    {"pays": "Syrie", "indicatif": "+963", "drapeau": "🇸🇾", "code": "SY"},
+    {"pays": "Tadjikistan", "indicatif": "+992", "drapeau": "🇹🇯", "code": "TJ"},
+    {"pays": "Tanzanie", "indicatif": "+255", "drapeau": "🇹🇿", "code": "TZ"},
+    {"pays": "Tchad", "indicatif": "+235", "drapeau": "🇹🇩", "code": "TD"},
+    {"pays": "Thaïlande", "indicatif": "+66", "drapeau": "🇹🇭", "code": "TH"},
+    {"pays": "Timor oriental", "indicatif": "+670", "drapeau": "🇹🇱", "code": "TL"},
+    {"pays": "Togo", "indicatif": "+228", "drapeau": "🇹🇬", "code": "TG"},
+    {"pays": "Tonga", "indicatif": "+676", "drapeau": "🇹🇴", "code": "TO"},
+    {"pays": "Trinité-et-Tobago", "indicatif": "+1868", "drapeau": "🇹🇹", "code": "TT"},
+    {"pays": "Tunisie", "indicatif": "+216", "drapeau": "🇹🇳", "code": "TN"},
+    {"pays": "Turkménistan", "indicatif": "+993", "drapeau": "🇹🇲", "code": "TM"},
+    {"pays": "Turquie", "indicatif": "+90", "drapeau": "🇹🇷", "code": "TR"},
+    {"pays": "Ukraine", "indicatif": "+380", "drapeau": "🇺🇦", "code": "UA"},
+    {"pays": "Uruguay", "indicatif": "+598", "drapeau": "🇺🇾", "code": "UY"},
+    {"pays": "Vatican", "indicatif": "+379", "drapeau": "🇻🇦", "code": "VA"},
+    {"pays": "Venezuela", "indicatif": "+58", "drapeau": "🇻🇪", "code": "VE"},
+    {"pays": "Viêt Nam", "indicatif": "+84", "drapeau": "🇻🇳", "code": "VN"},
+    {"pays": "Yémen", "indicatif": "+967", "drapeau": "🇾🇪", "code": "YE"},
+    {"pays": "Zambie", "indicatif": "+260", "drapeau": "🇿🇲", "code": "ZM"},
+    {"pays": "Zimbabwe", "indicatif": "+263", "drapeau": "🇿🇼", "code": "ZW"}
+]
+
+# ============================================================
+# FONCTIONS DE GESTION DES NUMÉROS DE TÉLÉPHONE
+# ============================================================
+def get_pays_from_phone(phone):
+    """Détermine le pays à partir du numéro de téléphone"""
+    if not phone:
+        return None
+    
+    # Nettoyer le numéro
+    phone_clean = re.sub(r'[\s\-\(\)]', '', phone)
+    
+    # Trier les indicatifs par longueur décroissante pour éviter les conflits
+    pays_tries = sorted(PAYS_INDICATIFS, key=lambda x: len(x['indicatif']), reverse=True)
+    
+    for pays in pays_tries:
+        indicatif = pays['indicatif']
+        if phone_clean.startswith(indicatif.replace('+', '')) or phone_clean.startswith(indicatif):
+            return pays
+    
+    return None
+
+def format_phone_with_country(phone):
+    """Formate un numéro de téléphone avec le pays détecté"""
+    pays = get_pays_from_phone(phone)
+    if pays:
+        return f"{pays['drapeau']} {phone} ({pays['pays']})"
+    return phone
+
+def get_country_code_from_phone(phone):
+    """Récupère le code pays à partir du numéro"""
+    pays = get_pays_from_phone(phone)
+    if pays:
+        return pays['code']
+    return None
+
+# ============================================================
+# CSS STYLE
 # ============================================================
 def set_custom_theme():
-    """Définit les thèmes light et dark avec animations (identique au Code 2)"""
+    """Définit les thèmes light et dark avec animations"""
     st.markdown(f"""
     <style>
         /* ===== THÈME LIGHT ===== */
@@ -56,6 +277,27 @@ def set_custom_theme():
             100% {{ background-position: 0% 50%; }}
         }}
         
+        @keyframes fadeIn {{
+            from {{ opacity: 0; transform: translateY(10px); }}
+            to {{ opacity: 1; transform: translateY(0); }}
+        }}
+        
+        @keyframes fadeInUp {{
+            from {{ opacity: 0; transform: translateY(20px); }}
+            to {{ opacity: 1; transform: translateY(0); }}
+        }}
+        
+        @keyframes fadeInSlide {{
+            from {{ 
+                opacity: 0;
+                transform: translateY(20px);
+            }}
+            to {{ 
+                opacity: 1;
+                transform: translateY(0);
+            }}
+        }}
+        
         /* Header animé */
         [data-testid="stHeader"] {{
             background-color: rgba(255, 255, 255, 0.9);
@@ -74,11 +316,6 @@ def set_custom_theme():
         /* Titres animés */
         h1, h2, h3, h4, h5, h6 {{
             animation: fadeIn 0.8s ease-out;
-        }}
-        
-        @keyframes fadeIn {{
-            from {{ opacity: 0; transform: translateY(10px); }}
-            to {{ opacity: 1; transform: translateY(0); }}
         }}
         
         /* Boutons avec effets */
@@ -136,17 +373,6 @@ def set_custom_theme():
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
         }}
         
-        /* Tableaux */
-        [data-testid="stDataFrame"] {{
-            border-radius: 10px;
-            animation: fadeInUp 0.6s ease-out;
-        }}
-        
-        @keyframes fadeInUp {{
-            from {{ opacity: 0; transform: translateY(20px); }}
-            to {{ opacity: 1; transform: translateY(0); }}
-        }}
-        
         /* Conteneur principal */
         .main-container {{
             background: linear-gradient(135deg, #f8faff 0%, #e6ecff 100%);
@@ -173,75 +399,6 @@ def set_custom_theme():
             animation: fadeInSlide 0.8s ease-out;
         }}
         
-        @keyframes fadeInSlide {{
-            from {{ 
-                opacity: 0;
-                transform: translateY(20px);
-            }}
-            to {{ 
-                opacity: 1;
-                transform: translateY(0);
-            }}
-        }}
-        
-        /* Onglets stylisés */
-        [data-testid="stTabs"] [role="tablist"] {{
-            gap: 5px;
-        }}
-        
-        [data-testid="stTabs"] [role="tab"] {{
-            padding: 10px 20px;
-            border-radius: 8px 8px 0 0;
-            transition: all 0.3s ease;
-        }}
-        
-        [data-testid="stTabs"] [role="tab"] {{
-            background-color: rgba(74, 111, 165, 0.1);
-        }}
-        
-        [data-testid="stTabs"] [aria-selected="true"] {{
-            background-color: #4a6fa5;
-            color: white;
-            font-weight: bold;
-        }}
-        
-        @media (prefers-color-scheme: dark) {{
-            [data-testid="stTabs"] [role="tab"] {{
-                background-color: rgba(22, 96, 136, 0.2);
-            }}
-            
-            [data-testid="stTabs"] [aria-selected="true"] {{
-                background-color: #166088;
-            }}
-        }}
-        
-        /* Cartes personnalisées */
-        .custom-card {{
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-            transition: all 0.3s ease;
-            border-left: 4px solid #4a6fa5;
-        }}
-        
-        .custom-card {{
-            background-color: white;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }}
-        
-        @media (prefers-color-scheme: dark) {{
-            .custom-card {{
-                background-color: #1e2130;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-                border-left: 4px solid #166088;
-            }}
-        }}
-        
-        .custom-card:hover {{
-            transform: translateY(-5px);
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
-        }}
-        
         /* Login container */
         .login-container {{
             background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
@@ -251,6 +408,36 @@ def set_custom_theme():
             border-radius: 15px;
             box-shadow: 0 10px 20px rgba(0,0,0,0.1);
             color: white;
+        }}
+        
+        /* Password strength indicator */
+        .password-strength {{
+            margin: 0.5rem 0;
+            padding: 0.5rem;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }}
+        
+        @media (prefers-color-scheme: dark) {{
+            .password-strength {{
+                background: #1e2130;
+            }}
+        }}
+        
+        /* Country display */
+        .country-display {{
+            padding: 0.5rem;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            margin: 0.5rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }}
+        
+        .country-flag-large {{
+            font-size: 2rem;
         }}
         
         /* Scrollbar */
@@ -270,20 +457,6 @@ def set_custom_theme():
         
         ::-webkit-scrollbar-thumb:hover {{
             background: #3a5a8f;
-        }}
-
-        /* Password strength indicator */
-        .password-strength {{
-            margin: 0.5rem 0;
-            padding: 0.5rem;
-            border-radius: 8px;
-            background: #f8f9fa;
-        }}
-        
-        @media (prefers-color-scheme: dark) {{
-            .password-strength {{
-                background: #1e2130;
-            }}
         }}
     </style>
     """, unsafe_allow_html=True)
@@ -384,6 +557,8 @@ class Database:
             'last_name': 'VARCHAR(100) NOT NULL',
             'email': 'VARCHAR(255) NOT NULL UNIQUE',
             'phone': 'VARCHAR(50)',
+            'country_code': 'VARCHAR(10)',
+            'country_name': 'VARCHAR(100)',
             'password': 'VARCHAR(255) NOT NULL',
             'created_at': 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
             'last_login': 'TIMESTAMP NULL',
@@ -412,10 +587,12 @@ class Database:
                         self.cursor.execute(f"ALTER TABLE utilisateurs ADD COLUMN {col_name} {col_def} AFTER last_name")
                     elif col_name == 'phone':
                         self.cursor.execute(f"ALTER TABLE utilisateurs ADD COLUMN {col_name} {col_def} AFTER email")
+                    elif col_name in ['country_code', 'country_name']:
+                        self.cursor.execute(f"ALTER TABLE utilisateurs ADD COLUMN {col_name} {col_def} AFTER phone")
                     elif col_name == 'password':
                         if 'password' in existing_columns:
                             continue
-                        self.cursor.execute(f"ALTER TABLE utilisateurs ADD COLUMN {col_name} {col_def} AFTER phone")
+                        self.cursor.execute(f"ALTER TABLE utilisateurs ADD COLUMN {col_name} {col_def} AFTER country_name")
                     else:
                         self.cursor.execute(f"ALTER TABLE utilisateurs ADD COLUMN {col_name} {col_def}")
                 except Error as e:
@@ -456,6 +633,8 @@ class Database:
                         last_name VARCHAR(100) NOT NULL,
                         email VARCHAR(255) NOT NULL,
                         phone VARCHAR(50),
+                        country_code VARCHAR(10),
+                        country_name VARCHAR(100),
                         password VARCHAR(255) NOT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         last_login TIMESTAMP NULL,
@@ -472,6 +651,8 @@ class Database:
                     user_id VARCHAR(36) NOT NULL,
                     token VARCHAR(10) NOT NULL,
                     phone VARCHAR(50) NOT NULL,
+                    country_code VARCHAR(10),
+                    country_name VARCHAR(100),
                     expires_at TIMESTAMP NOT NULL,
                     used BOOLEAN DEFAULT FALSE,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -542,8 +723,11 @@ class Database:
 
     # ==================== GESTION DES TOKENS ====================
     def create_password_reset_token(self, user_id, token, phone):
-        """Crée un token de réinitialisation de mot de passe"""
+        """Crée un token de réinitialisation de mot de passe avec les infos du pays"""
         try:
+            # Déterminer le pays à partir du numéro
+            pays_info = get_pays_from_phone(phone)
+            
             # Supprimer les anciens tokens pour cet utilisateur
             self.cursor.execute(
                 "DELETE FROM password_reset_tokens WHERE user_id = %s",
@@ -551,18 +735,29 @@ class Database:
             )
             
             # Insérer le nouveau token
-            expires_at = datetime.now() + timedelta(minutes=10)  # Token valable 10 minutes
-            self.cursor.execute(
-                """INSERT INTO password_reset_tokens 
-                   (id, user_id, token, phone, expires_at, created_at) 
-                   VALUES (%s, %s, %s, %s, %s, NOW())""",
-                (str(uuid.uuid4()), user_id, token, phone, expires_at)
-            )
+            expires_at = datetime.now() + timedelta(minutes=10)
+            
+            if pays_info:
+                self.cursor.execute(
+                    """INSERT INTO password_reset_tokens 
+                       (id, user_id, token, phone, country_code, country_name, expires_at, created_at) 
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())""",
+                    (str(uuid.uuid4()), user_id, token, phone, 
+                     pays_info['code'], pays_info['pays'], expires_at)
+                )
+            else:
+                self.cursor.execute(
+                    """INSERT INTO password_reset_tokens 
+                       (id, user_id, token, phone, expires_at, created_at) 
+                       VALUES (%s, %s, %s, %s, %s, NOW())""",
+                    (str(uuid.uuid4()), user_id, token, phone, expires_at)
+                )
+            
             self.connection.commit()
-            return True
+            return True, pays_info
         except Error as e:
             print(f"Erreur création token: {e}")
-            return False
+            return False, None
     
     def verify_reset_token(self, token, phone):
         """Vérifie la validité d'un token de réinitialisation"""
@@ -611,29 +806,64 @@ class Database:
     def get_user_by_phone(self, phone):
         """Récupère un utilisateur par son numéro de téléphone"""
         try:
+            # Nettoyer le numéro pour la recherche
+            phone_clean = re.sub(r'[\s\-\(\)]', '', phone)
             self.cursor.execute(
-                "SELECT * FROM utilisateurs WHERE phone = %s AND is_active = TRUE",
-                (phone,)
+                "SELECT * FROM utilisateurs WHERE REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', ''), ')', '') = %s AND is_active = TRUE",
+                (phone_clean,)
             )
             return self.cursor.fetchone()
         except Error as e:
             print(f"Erreur recherche par téléphone: {e}")
             return None
 
-    # ==================== MESSAGES AVEC PIÈCES JOINTES ====================
+    def create_user_with_country(self, first_name, last_name, email, phone, password):
+        """Crée un utilisateur avec les informations du pays"""
+        try:
+            user_id = str(uuid.uuid4())
+            hashed_pw = hashlib.sha256(password.encode()).hexdigest()
+            
+            existing = self.get_user_by_email(email)
+            if existing:
+                return False, "Cet email est déjà utilisé"
+            
+            # Déterminer le pays
+            pays_info = get_pays_from_phone(phone)
+            
+            if pays_info:
+                self.cursor.execute(
+                    """INSERT INTO utilisateurs 
+                       (id, first_name, last_name, email, phone, country_code, country_name, password) 
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    (user_id, first_name, last_name, email, phone, 
+                     pays_info['code'], pays_info['pays'], hashed_pw)
+                )
+            else:
+                self.cursor.execute(
+                    "INSERT INTO utilisateurs (id, first_name, last_name, email, phone, password) VALUES (%s,%s,%s,%s,%s,%s)",
+                    (user_id, first_name, last_name, email, phone, hashed_pw)
+                )
+            
+            self.connection.commit()
+            return True, user_id
+        except Error as e:
+            return False, str(e)
+
+    def create_user(self, first_name, last_name, email, phone, password):
+        """Méthode existante modifiée pour utiliser create_user_with_country"""
+        return self.create_user_with_country(first_name, last_name, email, phone, password)
+
+    # ==================== AUTRES MÉTHODES (inchangées) ====================
     def send_message_with_attachment(self, user_id, sender, content, file_bytes, filename, file_type):
-        """Envoie un message avec pièce jointe"""
         try:
             msg_id = str(uuid.uuid4())
             
-            # Vérifier si les colonnes attachment existent
             self.cursor.execute("""
                 SHOW COLUMNS FROM messages 
                 WHERE Field IN ('attachment', 'attachment_filename', 'attachment_type')
             """)
             existing_cols = [col['Field'] for col in self.cursor.fetchall()]
             
-            # Ajouter les colonnes si nécessaire
             if 'attachment' not in existing_cols:
                 self.cursor.execute("ALTER TABLE messages ADD COLUMN attachment LONGBLOB")
             if 'attachment_filename' not in existing_cols:
@@ -643,7 +873,6 @@ class Database:
             
             self.connection.commit()
             
-            # Insérer le message avec la pièce jointe
             self.cursor.execute("""
                 INSERT INTO messages (id, user_id, sender, content, attachment, attachment_filename, attachment_type, timestamp)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
@@ -655,7 +884,6 @@ class Database:
             return False, str(e)
 
     def get_user_messages_with_attachments(self, user_id, limit=50):
-        """Récupère les messages d'un utilisateur avec leurs pièces jointes"""
         try:
             self._ensure_connection()
             self.cursor.execute("""
@@ -665,7 +893,6 @@ class Database:
             """, (user_id, limit))
             msgs = self.cursor.fetchall()
             
-            # Marquer les messages comme lus
             self.cursor.execute("""
                 UPDATE messages SET is_read=TRUE 
                 WHERE user_id=%s AND sender='support' AND is_read=FALSE
@@ -675,25 +902,6 @@ class Database:
             return msgs[::-1]
         except Error:
             return []
-
-    # ==================== UTILISATEURS ====================
-    def create_user(self, first_name, last_name, email, phone, password):
-        try:
-            user_id = str(uuid.uuid4())
-            hashed_pw = hashlib.sha256(password.encode()).hexdigest()
-            
-            existing = self.get_user_by_email(email)
-            if existing:
-                return False, "Cet email est déjà utilisé"
-            
-            self.cursor.execute(
-                "INSERT INTO utilisateurs (id, first_name, last_name, email, phone, password) VALUES (%s,%s,%s,%s,%s,%s)",
-                (user_id, first_name, last_name, email, phone, hashed_pw)
-            )
-            self.connection.commit()
-            return True, user_id
-        except Error as e:
-            return False, str(e)
 
     def authenticate_user(self, email, password):
         try:
@@ -717,7 +925,6 @@ class Database:
         except Error:
             return None
 
-    # ==================== AVI ====================
     def create_avi_request(self, user_id, user_email, request_data):
         try:
             date_str = datetime.now().strftime('%Y%m%d')
@@ -760,7 +967,6 @@ class Database:
                 stats[key] = 0
         return stats
 
-    # ==================== MESSAGES ====================
     def create_conversation(self, user_id, name):
         try:
             conv_id = str(uuid.uuid4())
@@ -819,12 +1025,9 @@ class Database:
             return False, str(e)
 
     def get_user_avis(self, user_id):
-        """Récupère uniquement les AVI associées à l'utilisateur connecté"""
         try:
-            # S'assurer que la connexion est active
             self._ensure_connection()
             
-            # 1. Récupérer les informations de l'utilisateur
             self.cursor.execute('''
             SELECT id, first_name, last_name, email FROM utilisateurs WHERE id = %s
             ''', (user_id,))
@@ -836,9 +1039,6 @@ class Database:
             user_first = user.get('first_name', '')
             user_last = user.get('last_name', '')
             
-            print(f"Recherche AVI pour: {user_first} {user_last}")
-            
-            # 2. Rechercher les AVI
             query = '''
             SELECT 
                 reference,
@@ -866,12 +1066,10 @@ class Database:
             self.cursor.execute(query, (search_pattern1, search_pattern2))
             results = self.cursor.fetchall()
             
-            print(f"AVI trouvées: {len(results)}")
             return results
             
         except Error as e:
             print(f"Erreur get_user_avis: {e}")
-            # Tentative de reconnexion et réessai
             try:
                 self._ensure_connection()
                 self.cursor.execute(query, (search_pattern1, search_pattern2))
@@ -904,10 +1102,28 @@ def load_lottieurl(url):
         return None
 
 # ============================================================
+# SIMULATION D'ENVOI DE SMS
+# ============================================================
+def send_sms_simulation(phone, token, pays_info=None):
+    """Simule l'envoi d'un SMS avec le token"""
+    country_display = ""
+    if pays_info:
+        country_display = f" ({pays_info['drapeau']} {pays_info['pays']})"
+    
+    # Dans un environnement de production, remplacer par un vrai service SMS
+    st.info(f"📱 SMS envoyé à {phone}{country_display}")
+    st.caption(f"🔑 Code de vérification: **{token}** (valable 10 minutes)")
+    
+    # Log pour le débogage
+    print(f"[SMS] Envoi du code {token} à {phone} {country_display}")
+    
+    return True
+
+# ============================================================
 # PAGE MOT DE PASSE OUBLIÉ
 # ============================================================
 def forgot_password_page():
-    """Page de réinitialisation du mot de passe"""
+    """Page de réinitialisation du mot de passe avec détection du pays"""
     set_custom_theme()
     
     # Cache pour stocker l'état du processus
@@ -919,6 +1135,8 @@ def forgot_password_page():
         st.session_state.reset_user_id = ""
     if 'reset_token' not in st.session_state:
         st.session_state.reset_token = ""
+    if 'reset_pays_info' not in st.session_state:
+        st.session_state.reset_pays_info = None
     
     st.markdown("""
     <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #4a6fa5, #166088); border-radius: 20px; margin-bottom: 2rem;">
@@ -931,80 +1149,141 @@ def forgot_password_page():
         # Étape 1: Saisie du numéro de téléphone
         with st.container():
             st.markdown("""
-            <div class="login-container" style="max-width: 500px; margin: 0 auto;">
+            <div class="login-container" style="max-width: 600px; margin: 0 auto;">
                 <h3 style="text-align: center; color: white;">📱 Réinitialisation</h3>
                 <p style="text-align: center; color: rgba(255,255,255,0.9); font-size: 0.9rem;">
-                    Entrez votre numéro de téléphone pour recevoir un code de vérification
+                    Entrez votre numéro de téléphone avec l'indicatif du pays
                 </p>
             </div>
             """, unsafe_allow_html=True)
             
-            with st.form("phone_form", clear_on_submit=False):
-                phone = st.text_input(
-                    "Numéro de téléphone *", 
-                    placeholder="Ex: 06 123 45 67",
-                    key="reset_phone_input",
-                    help="Entrez le numéro associé à votre compte"
+            # Sélecteur de pays avec drapeau
+            st.markdown("### 🌍 Sélectionnez votre pays")
+            
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                # Liste des pays pour le selectbox
+                pays_options = [f"{p['drapeau']} {p['pays']} ({p['indicatif']})" for p in PAYS_INDICATIFS]
+                selected_index = 0  # Congo Brazzaville par défaut
+                
+                # Trouver l'index du Congo Brazzaville
+                for i, p in enumerate(PAYS_INDICATIFS):
+                    if p['code'] == 'CG':
+                        selected_index = i
+                        break
+                
+                selected_pays = st.selectbox(
+                    "Pays",
+                    pays_options,
+                    index=selected_index,
+                    key="pays_select"
                 )
                 
-                col1, col2 = st.columns(2)
-                with col1:
-                    back = st.form_submit_button("⬅️ Retour", use_container_width=True)
-                with col2:
-                    send_code = st.form_submit_button("📤 Envoyer le code", use_container_width=True)
+                # Extraire l'indicatif du pays sélectionné
+                selected_indicatif = ""
+                for p in PAYS_INDICATIFS:
+                    if f"{p['drapeau']} {p['pays']} ({p['indicatif']})" == selected_pays:
+                        selected_indicatif = p['indicatif']
+                        break
+            
+            with col2:
+                st.markdown("### 📞 Votre numéro")
                 
-                if back:
-                    # Nettoyer les variables de session
-                    for key in ['reset_step', 'reset_phone', 'reset_user_id', 'reset_token']:
-                        if key in st.session_state:
-                            del st.session_state[key]
-                    st.session_state.show_forgot_password = False
-                    st.rerun()
-                
-                if send_code:
-                    if not phone or len(phone) < 8:
-                        st.error("⚠️ Veuillez entrer un numéro de téléphone valide")
-                    else:
-                        # Vérifier si l'utilisateur existe
-                        user = db.get_user_by_phone(phone)
-                        if user:
-                            # Générer un token de 6 chiffres
-                            token = ''.join([str(random.randint(0, 9)) for _ in range(6)])
-                            
-                            # Sauvegarder le token
-                            success = db.create_password_reset_token(user['id'], token, phone)
-                            
-                            if success:
-                                st.session_state.reset_phone = phone
-                                st.session_state.reset_user_id = user['id']
-                                st.session_state.reset_token = token
-                                st.session_state.reset_step = 2
-                                
-                                # Simuler l'envoi du SMS (dans la vraie vie, utiliser une API SMS)
-                                st.success(f"✅ Code envoyé au {phone}")
-                                st.info("📱 Un code de vérification a été envoyé par SMS")
-                                st.caption(f"🔑 Code de test: **{token}**")
-                                
-                                st.rerun()
-                            else:
-                                st.error("❌ Erreur lors de l'envoi du code. Réessayez.")
+                with st.form("phone_form", clear_on_submit=False):
+                    phone_without_code = st.text_input(
+                        "Numéro de téléphone *",
+                        placeholder="Ex: 6 123 45 67",
+                        key="reset_phone_input",
+                        help="Entrez votre numéro sans l'indicatif"
+                    )
+                    
+                    # Afficher le numéro complet avec l'indicatif
+                    if phone_without_code and selected_indicatif:
+                        full_phone = selected_indicatif + phone_without_code.replace(' ', '')
+                        pays_info = get_pays_from_phone(full_phone)
+                        
+                        if pays_info:
+                            st.markdown(f"""
+                            <div class="country-display">
+                                <span class="country-flag-large">{pays_info['drapeau']}</span>
+                                <div>
+                                    <strong>{pays_info['pays']}</strong>
+                                    <br>
+                                    <span style="font-size: 0.9rem; opacity: 0.8;">Numéro complet: {pays_info['indicatif']} {phone_without_code}</span>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
                         else:
-                            st.error("❌ Aucun compte trouvé avec ce numéro de téléphone")
+                            st.warning("⚠️ Indicatif non reconnu pour ce numéro")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        back = st.form_submit_button("⬅️ Retour", use_container_width=True)
+                    with col2:
+                        send_code = st.form_submit_button("📤 Envoyer le code", use_container_width=True)
+                    
+                    if back:
+                        for key in ['reset_step', 'reset_phone', 'reset_user_id', 'reset_token', 'reset_pays_info']:
+                            if key in st.session_state:
+                                del st.session_state[key]
+                        st.session_state.show_forgot_password = False
+                        st.rerun()
+                    
+                    if send_code:
+                        if not phone_without_code or len(phone_without_code) < 6:
+                            st.error("⚠️ Veuillez entrer un numéro de téléphone valide")
+                        else:
+                            # Construire le numéro complet
+                            full_phone = selected_indicatif + phone_without_code.replace(' ', '')
+                            pays_info = get_pays_from_phone(full_phone)
+                            
+                            if not pays_info:
+                                st.error("⚠️ Indicatif non reconnu. Veuillez sélectionner le bon pays.")
+                            else:
+                                # Vérifier si l'utilisateur existe
+                                user = db.get_user_by_phone(full_phone)
+                                if user:
+                                    # Générer un token de 6 chiffres
+                                    token = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+                                    
+                                    # Sauvegarder le token
+                                    success, pays_info_result = db.create_password_reset_token(
+                                        user['id'], token, full_phone
+                                    )
+                                    
+                                    if success:
+                                        st.session_state.reset_phone = full_phone
+                                        st.session_state.reset_user_id = user['id']
+                                        st.session_state.reset_token = token
+                                        st.session_state.reset_pays_info = pays_info
+                                        st.session_state.reset_step = 2
+                                        
+                                        # Envoyer le SMS
+                                        send_sms_simulation(full_phone, token, pays_info)
+                                        
+                                        st.rerun()
+                                    else:
+                                        st.error("❌ Erreur lors de l'envoi du code. Réessayez.")
+                                else:
+                                    st.error(f"❌ Aucun compte trouvé avec le numéro {full_phone}")
     
     elif st.session_state.reset_step == 2:
         # Étape 2: Vérification du code SMS
         with st.container():
-            st.markdown("""
+            pays_info = st.session_state.reset_pays_info
+            country_display = f"{pays_info['drapeau']} {pays_info['pays']}" if pays_info else ""
+            
+            st.markdown(f"""
             <div class="login-container" style="max-width: 500px; margin: 0 auto;">
                 <h3 style="text-align: center; color: white;">✅ Vérification</h3>
                 <p style="text-align: center; color: rgba(255,255,255,0.9); font-size: 0.9rem;">
                     Entrez le code reçu par SMS
                 </p>
                 <p style="text-align: center; color: rgba(255,255,255,0.7); font-size: 0.8rem;">
-                    Envoyé au {phone}
+                    Envoyé au {country_display} {st.session_state.reset_phone}
                 </p>
             </div>
-            """.format(phone=st.session_state.reset_phone), unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
             
             with st.form("token_form", clear_on_submit=False):
                 token = st.text_input(
@@ -1028,10 +1307,9 @@ def forgot_password_page():
                     st.rerun()
                 
                 if resend:
-                    # Générer un nouveau token
                     new_token = ''.join([str(random.randint(0, 9)) for _ in range(6)])
                     
-                    success = db.create_password_reset_token(
+                    success, pays_info_result = db.create_password_reset_token(
                         st.session_state.reset_user_id, 
                         new_token, 
                         st.session_state.reset_phone
@@ -1040,7 +1318,7 @@ def forgot_password_page():
                     if success:
                         st.session_state.reset_token = new_token
                         st.success("✅ Nouveau code envoyé par SMS")
-                        st.caption(f"🔑 Code de test: **{new_token}**")
+                        send_sms_simulation(st.session_state.reset_phone, new_token, st.session_state.reset_pays_info)
                     else:
                         st.error("❌ Erreur lors du renvoi du code")
                 
@@ -1048,7 +1326,6 @@ def forgot_password_page():
                     if not token or len(token) != 6:
                         st.error("⚠️ Veuillez entrer un code valide à 6 chiffres")
                     else:
-                        # Vérifier le token
                         token_data = db.verify_reset_token(token, st.session_state.reset_phone)
                         
                         if token_data:
@@ -1061,11 +1338,17 @@ def forgot_password_page():
     elif st.session_state.reset_step == 3:
         # Étape 3: Modification du mot de passe
         with st.container():
-            st.markdown("""
+            pays_info = st.session_state.reset_pays_info
+            country_display = f"{pays_info['drapeau']} {pays_info['pays']}" if pays_info else ""
+            
+            st.markdown(f"""
             <div class="login-container" style="max-width: 500px; margin: 0 auto;">
                 <h3 style="text-align: center; color: white;">🔑 Nouveau mot de passe</h3>
                 <p style="text-align: center; color: rgba(255,255,255,0.9); font-size: 0.9rem;">
                     Créez un nouveau mot de passe sécurisé
+                </p>
+                <p style="text-align: center; color: rgba(255,255,255,0.7); font-size: 0.8rem;">
+                    {country_display}
                 </p>
             </div>
             """, unsafe_allow_html=True)
@@ -1139,11 +1422,9 @@ def forgot_password_page():
                     elif len(new_password) < 8:
                         st.error("⚠️ Le mot de passe doit contenir au moins 8 caractères")
                     else:
-                        # Mettre à jour le mot de passe
                         success = db.update_user_password(st.session_state.reset_user_id, new_password)
                         
                         if success:
-                            # Marquer le token comme utilisé
                             token_data = db.verify_reset_token(
                                 st.session_state.reset_token, 
                                 st.session_state.reset_phone
@@ -1154,7 +1435,6 @@ def forgot_password_page():
                             st.success("✅ Mot de passe mis à jour avec succès !")
                             st.balloons()
                             
-                            # Message de confirmation
                             st.markdown("""
                             <div style="text-align: center; padding: 1rem; background: #d1fae5; border-radius: 10px; margin: 1rem 0;">
                                 <h4 style="color: #065f46;">🔐 Votre mot de passe a été réinitialisé</h4>
@@ -1162,17 +1442,14 @@ def forgot_password_page():
                             </div>
                             """, unsafe_allow_html=True)
                             
-                            # Bouton de retour à la page de connexion
                             if st.button("🔐 Aller à la page de connexion", use_container_width=True):
-                                # Nettoyer toutes les variables de session
                                 for key in ['reset_step', 'reset_phone', 'reset_user_id', 'reset_token', 
-                                           'reset_phone_input', 'reset_token_input', 'new_password', 
-                                           'confirm_password']:
+                                           'reset_pays_info', 'reset_phone_input', 'reset_token_input', 
+                                           'new_password', 'confirm_password']:
                                     if key in st.session_state:
                                         del st.session_state[key]
                                 
                                 st.session_state.show_forgot_password = False
-                                # Rediriger vers la page de connexion
                                 st.session_state.logged_in = False
                                 st.session_state.user = None
                                 st.rerun()
@@ -1228,7 +1505,6 @@ def auth_page():
                             st.error("Email ou mot de passe incorrect")
                 
                 if forgot_clicked:
-                    # Rediriger vers la page de réinitialisation
                     st.session_state.reset_step = 1
                     st.session_state.show_forgot_password = True
                     st.rerun()
@@ -1244,16 +1520,45 @@ def auth_page():
                     last_name = st.text_input("Nom")
                 
                 email = st.text_input("Email")
-                phone = st.text_input("Téléphone")
+                
+                # Sélecteur de pays pour l'inscription
+                st.markdown("**📍 Pays et numéro de téléphone**")
+                col1, col2 = st.columns([1, 2])
+                with col1:
+                    pays_options = [f"{p['drapeau']} {p['pays']} ({p['indicatif']})" for p in PAYS_INDICATIFS]
+                    selected_idx = 0
+                    for i, p in enumerate(PAYS_INDICATIFS):
+                        if p['code'] == 'CG':
+                            selected_idx = i
+                            break
+                    selected_pays = st.selectbox("Pays", pays_options, index=selected_idx, key="register_pays")
+                    
+                    # Extraire l'indicatif
+                    selected_indicatif = ""
+                    for p in PAYS_INDICATIFS:
+                        if f"{p['drapeau']} {p['pays']} ({p['indicatif']})" == selected_pays:
+                            selected_indicatif = p['indicatif']
+                            break
+                
+                with col2:
+                    phone_local = st.text_input("Numéro de téléphone", placeholder="6 123 45 67", key="register_phone")
+                    if phone_local and selected_indicatif:
+                        full_phone = selected_indicatif + phone_local.replace(' ', '')
+                        pays_info = get_pays_from_phone(full_phone)
+                        if pays_info:
+                            st.caption(f"📱 {pays_info['drapeau']} {full_phone}")
+                
                 password = st.text_input("Mot de passe", type="password")
                 confirm = st.text_input("Confirmer", type="password")
                 terms = st.checkbox("J'accepte les conditions générales")
                 
                 if st.form_submit_button("Créer mon compte", use_container_width=True):
                     if password == confirm and terms:
-                        ok, res = db.create_user(first_name, last_name, email, phone, password)
+                        full_phone = selected_indicatif + phone_local.replace(' ', '') if phone_local else ""
+                        ok, res = db.create_user(first_name, last_name, email, full_phone, password)
                         if ok:
                             st.success("Compte créé avec succès !")
+                            st.balloons()
                         else:
                             st.error(f"Erreur : {res}")
                     else:
@@ -1262,15 +1567,23 @@ def auth_page():
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
-# DASHBOARD
+# DASHBOARD (inchangé)
 # ============================================================
 def dashboard_page():
     set_custom_theme()
     
+    # Récupérer le pays de l'utilisateur
+    user_country = ""
+    if st.session_state.user.get('country_code'):
+        for p in PAYS_INDICATIFS:
+            if p['code'] == st.session_state.user['country_code']:
+                user_country = f"{p['drapeau']} {p['pays']}"
+                break
+    
     st.markdown(f"""
     <div class="main-container animated-entry">
         <h1>👋 Bienvenue, {st.session_state.user.get('first_name', 'Utilisateur')} !</h1>
-        <p>Voici votre tableau de bord personnalisé</p>
+        <p>Voici votre tableau de bord personnalisé {user_country}</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1309,7 +1622,7 @@ def dashboard_page():
         st.info("Aucune activité récente")
 
 # ============================================================
-# PAGE DEMANDE AVI
+# PAGE DEMANDE AVI (inchangé)
 # ============================================================
 def avi_request_page():
     set_custom_theme()
@@ -1329,7 +1642,6 @@ def avi_request_page():
     
     st.progress(step / 3)
     
-    # Étape 1
     if step == 1:
         st.markdown('<div class="card-premium animate-fadeInLeft">', unsafe_allow_html=True)
         st.markdown("### 📝 Informations Personnelles")
@@ -1405,7 +1717,6 @@ def avi_request_page():
                     st.session_state.avi_step = 2
                     st.rerun()
     
-    # Étape 2
     elif step == 2:
         with st.container():
             st.markdown("### 📎 Pièces Justificatives")
@@ -1439,7 +1750,6 @@ def avi_request_page():
                     else:
                         st.error("Veuillez remplir tous les champs")
     
-    # Étape 3
     elif step == 3:
         with st.container():
             st.markdown("### ✅ Validation Finale")
@@ -1491,7 +1801,7 @@ def avi_request_page():
                         st.error("⚠️ Veuillez confirmer les informations")
 
 # ============================================================
-# PAGE MES AVI (DESIGN AMÉLIORÉ) - VERSION COMPLÈTE
+# PAGE MES AVI (inchangé)
 # ============================================================
 def my_avi_page():
     set_custom_theme()
@@ -1562,7 +1872,6 @@ def my_avi_page():
                 pdf = FPDF()
                 pdf.add_page()
                 
-                # Logos en arrière-plan
                 try:
                     logo_path = "assets/logo.png"
                     if os.path.exists(logo_path):
@@ -1582,7 +1891,6 @@ def my_avi_page():
                 except:
                     pass
                 
-                # En-tête
                 pdf.set_font('Arial', 'B', 16)
                 pdf.cell(0, 30, 'ATTESTATION DE VIREMENT IRREVOCABLE', 0, 1, 'C')
                 
@@ -1791,7 +2099,7 @@ def my_avi_page():
                     st.error(f"Erreur lors de la génération du PDF: {str(e)}")
 
 # ============================================================
-# PAGE MESSAGES (DESIGN AMÉLIORÉ)
+# PAGE MESSAGES (inchangé)
 # ============================================================
 def messages_page():
     set_custom_theme()
@@ -2055,11 +2363,21 @@ def main():
     set_custom_theme()
     
     with st.sidebar:
+        # Afficher le pays de l'utilisateur dans la sidebar
+        user_country_display = ""
+        if st.session_state.user.get('country_code'):
+            for p in PAYS_INDICATIFS:
+                if p['code'] == st.session_state.user['country_code']:
+                    user_country_display = f"{p['drapeau']} {p['pays']}"
+                    break
+        
         st.markdown(f"""
         <div style="text-align: center; padding: 1rem; background: linear-gradient(135deg, #4a6fa5, #166088); border-radius: 15px; color: white;">
             <div style="font-size: 3rem;">👤</div>
             <h4>{st.session_state.user.get('first_name', '')} {st.session_state.user.get('last_name', '')}</h4>
             <small>{st.session_state.user.get('email', '')}</small>
+            <br>
+            <small>{user_country_display}</small>
         </div>
         """, unsafe_allow_html=True)
         
