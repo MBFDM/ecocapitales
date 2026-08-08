@@ -28,7 +28,7 @@ import re
 EMAIL_CONFIG = {
     'smtp_server': 'live.smtp.mailtrap.io',  # Serveur Mailtrap
     'smtp_port': 587,  # Port Mailtrap (ou 587 selon votre plan)
-    'smtp_username': 'smtp@mailtrap.io',  # À remplacer
+    'smtp_username': 'api',  # À remplacer
     'smtp_password': 'dba914abfb2e8ee4d29c63c84e62ce16',  # À remplacer
     'from_email': 'noreply@demomailtrap.com',
     'from_name': 'EcoCapital - Support'
