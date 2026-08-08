@@ -1344,7 +1344,7 @@ def load_lottieurl(url):
 # PAGE MOT DE PASSE OUBLIÉ (VERSION COMPLÈTE ET CORRIGÉE)
 # ============================================================
 # ============================================================
-# PAGE MOT DE PASSE OUBLIÉ (CORRIGÉE)
+# PAGE MOT DE PASSE OUBLIÉ (VERSION CORRIGÉE - SANS BOUTONS CONDITIONNELS)
 # ============================================================
 def forgot_password_page():
     """Page pour demander la réinitialisation du mot de passe"""
@@ -1373,8 +1373,16 @@ def forgot_password_page():
     with col2:
         st.markdown('<div class="login-container">', unsafe_allow_html=True)
         
+        # Utiliser st.session_state pour stocker l'état du formulaire
+        if 'reset_email_sent' not in st.session_state:
+            st.session_state.reset_email_sent = False
+        if 'reset_email' not in st.session_state:
+            st.session_state.reset_email = ""
+        if 'reset_token' not in st.session_state:
+            st.session_state.reset_token = ""
+        
         with st.form("forgot_password_form"):
-            email = st.text_input("Email", placeholder="exemple@email.com")
+            email = st.text_input("Email", placeholder="exemple@email.com", key="forgot_email_input")
             
             st.markdown("""
             <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 10px;">
@@ -1390,6 +1398,7 @@ def forgot_password_page():
                     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
                     if not re.match(email_pattern, email):
                         st.error("⚠️ Format d'email invalide.")
+                        st.session_state.reset_email_sent = False
                     else:
                         # Créer le token
                         success, result = db.create_password_reset_token(email)
@@ -1402,6 +1411,9 @@ def forgot_password_page():
                             email_sent, message = send_reset_password_email(email, result, user_name)
                             
                             if email_sent:
+                                st.session_state.reset_email_sent = True
+                                st.session_state.reset_email = email
+                                st.session_state.reset_token = result
                                 st.success("✅ Un lien de réinitialisation a été envoyé à votre adresse email via Mailtrap.")
                                 st.info("📧 Consultez votre boîte Mailtrap pour voir l'email : https://mailtrap.io/inboxes")
                                 
@@ -1413,25 +1425,27 @@ def forgot_password_page():
                                     Token: {result}
                                     Lien: https://ecocapitales-client.streamlit.app?reset_token={result}
                                     """)
-                                
-                                # Bouton de retour après succès
-                                if st.button("⬅️ Retour à la connexion", key="back_to_login_success"):
-                                    st.session_state.page = "login"
-                                    st.rerun()
                             else:
+                                st.session_state.reset_email_sent = False
                                 st.error(f"❌ Erreur lors de l'envoi de l'email via Mailtrap: {message}")
                                 st.warning("Vérifiez vos identifiants Mailtrap dans la configuration.")
                         else:
+                            st.session_state.reset_email_sent = False
                             st.error(f"❌ {result}")
                 else:
+                    st.session_state.reset_email_sent = False
                     st.warning("Veuillez saisir votre adresse email.")
         
-        st.markdown("</div>", unsafe_allow_html=True)
-        
-        # Bouton de retour en bas (un seul)
+        # Bouton de retour - TOUJOURS PRÉSENT, en dehors de toute condition
         if st.button("⬅️ Retour à la page de connexion", key="back_to_login_bottom"):
+            # Réinitialiser les variables de session
+            st.session_state.reset_email_sent = False
+            st.session_state.reset_email = ""
+            st.session_state.reset_token = ""
             st.session_state.page = "login"
             st.rerun()
+        
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # ============================================================
 # PAGE RÉINITIALISATION DU MOT DE PASSE
