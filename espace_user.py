@@ -1341,7 +1341,7 @@ def load_lottieurl(url):
         return None
 
 # ============================================================
-# PAGE MOT DE PASSE OUBLIÉ
+# PAGE MOT DE PASSE OUBLIÉ (VERSION COMPLÈTE ET CORRIGÉE)
 # ============================================================
 def forgot_password_page():
     """Page pour demander la réinitialisation du mot de passe"""
@@ -1411,7 +1411,8 @@ def forgot_password_page():
                                     Lien: https://ecocapitale-bm.streamlit.app?reset_token={result}
                                     """)
                                 
-                                if st.button("⬅️ Retour à la connexion"):
+                                # Bouton de retour après succès (avec key unique)
+                                if st.button("⬅️ Retour à la connexion", key="back_to_login_success"):
                                     st.session_state.page = "login"
                                     st.rerun()
                             else:
@@ -1424,7 +1425,8 @@ def forgot_password_page():
         
         st.markdown("</div>", unsafe_allow_html=True)
         
-        if st.button("⬅️ Retour à la page de connexion", use_container_width=True):
+        # Bouton de retour en bas (avec key unique)
+        if st.button("⬅️ Retour à la page de connexion", key="back_to_login_bottom"):
             st.session_state.page = "login"
             st.rerun()
 
