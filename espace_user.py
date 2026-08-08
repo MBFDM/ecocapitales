@@ -21,22 +21,24 @@ from email.mime.multipart import MIMEMultipart
 import re
 
 # ============================================================
-# CONFIGURATION EMAIL (À MODIFIER AVEC VOS IDENTIFIANTS)
+# CONFIGURATION EMAIL (MAILTRAP - ENVIRONNEMENT DE TEST)
 # ============================================================
+# Inscrivez-vous sur https://mailtrap.io/ et créez un compte
+# Récupérez vos identifiants dans la section "SMTP Settings"
 EMAIL_CONFIG = {
-    'smtp_server': 'smtp.gmail.com',  # ou votre serveur SMTP
-    'smtp_port': 587,
-    'smtp_username': 'votre_email@gmail.com',  # À remplacer
-    'smtp_password': 'votre_mot_de_passe_app',  # À remplacer
-    'from_email': 'votre_email@gmail.com',
+    'smtp_server': 'sandbox.smtp.mailtrap.io',  # Serveur Mailtrap
+    'smtp_port': 2525,  # Port Mailtrap (ou 587 selon votre plan)
+    'smtp_username': 'votre_username_mailtrap',  # À remplacer
+    'smtp_password': 'votre_password_mailtrap',  # À remplacer
+    'from_email': 'noreply@ecocapital.com',
     'from_name': 'EcoCapital - Support'
 }
 
 # ============================================================
-# FONCTIONS D'ENVOI D'EMAIL
+# FONCTIONS D'ENVOI D'EMAIL AVEC MAILTRAP
 # ============================================================
 def send_email(to_email, subject, html_content, text_content=""):
-    """Envoie un email avec SMTP"""
+    """Envoie un email via Mailtrap (environnement de test)"""
     try:
         # Créer le message
         msg = MIMEMultipart('alternative')
@@ -52,21 +54,21 @@ def send_email(to_email, subject, html_content, text_content=""):
         part_html = MIMEText(html_content, 'html')
         msg.attach(part_html)
         
-        # Connexion au serveur SMTP
+        # Connexion au serveur Mailtrap
         with smtplib.SMTP(EMAIL_CONFIG['smtp_server'], EMAIL_CONFIG['smtp_port']) as server:
             server.starttls()
             server.login(EMAIL_CONFIG['smtp_username'], EMAIL_CONFIG['smtp_password'])
             server.send_message(msg)
         
-        print(f"✅ Email envoyé à {to_email}")
-        return True, "Email envoyé avec succès"
+        print(f"✅ Email envoyé à {to_email} via Mailtrap")
+        return True, "Email envoyé avec succès (via Mailtrap)"
         
     except Exception as e:
-        print(f"❌ Erreur d'envoi d'email: {e}")
+        print(f"❌ Erreur d'envoi d'email via Mailtrap: {e}")
         return False, str(e)
 
 def send_reset_password_email(email, token, user_name=""):
-    """Envoie l'email de réinitialisation du mot de passe"""
+    """Envoie l'email de réinitialisation du mot de passe via Mailtrap"""
     # Construction du lien de réinitialisation
     base_url = "https://ecocapitale-bm.streamlit.app"  # À adapter selon votre URL
     reset_link = f"{base_url}?reset_token={token}"
@@ -85,29 +87,43 @@ def send_reset_password_email(email, token, user_name=""):
                 max-width: 600px;
                 margin: 0 auto;
                 padding: 20px;
+                background-color: #f5f7fa;
             }}
             .header {{
                 background: linear-gradient(135deg, #4a6fa5, #166088);
                 color: white;
-                padding: 20px;
+                padding: 30px 20px;
                 text-align: center;
                 border-radius: 10px 10px 0 0;
             }}
+            .header h1 {{
+                margin: 0;
+                font-size: 24px;
+            }}
+            .header p {{
+                margin: 10px 0 0;
+                opacity: 0.9;
+            }}
             .content {{
-                background: #f8f9fa;
+                background: white;
                 padding: 30px;
                 border-radius: 0 0 10px 10px;
                 border: 1px solid #e0e0e0;
+                border-top: none;
             }}
             .button {{
                 display: inline-block;
-                padding: 12px 30px;
+                padding: 14px 35px;
                 background: linear-gradient(135deg, #4a6fa5, #166088);
                 color: white !important;
                 text-decoration: none;
                 border-radius: 8px;
                 margin: 20px 0;
                 font-weight: bold;
+                text-align: center;
+            }}
+            .button:hover {{
+                background: linear-gradient(135deg, #3a5a8f, #0d4b6e);
             }}
             .footer {{
                 margin-top: 30px;
@@ -123,22 +139,71 @@ def send_reset_password_email(email, token, user_name=""):
                 padding: 15px;
                 margin: 15px 0;
                 border-radius: 4px;
+                font-size: 14px;
+            }}
+            .info-box {{
+                background: #e3f2fd;
+                border-left: 4px solid #2196f3;
+                padding: 15px;
+                margin: 15px 0;
+                border-radius: 4px;
+                font-size: 14px;
+            }}
+            .link-box {{
+                background: #f0f0f0;
+                padding: 12px;
+                border-radius: 4px;
+                word-break: break-all;
+                font-size: 13px;
+                font-family: monospace;
+                margin: 10px 0;
+            }}
+            .logo-text {{
+                font-size: 28px;
+                font-weight: bold;
+                color: #4a6fa5;
+            }}
+            @media (prefers-color-scheme: dark) {{
+                body {{
+                    background-color: #1a1a2e;
+                }}
+                .content {{
+                    background: #1e2130;
+                    color: #f0f2f6;
+                    border-color: #2d2d44;
+                }}
+                .link-box {{
+                    background: #2d2d44;
+                }}
+                .info-box {{
+                    background: #1a2a3a;
+                    border-left-color: #4a6fa5;
+                }}
+                .warning {{
+                    background: #2a2a1a;
+                    border-left-color: #ffc107;
+                }}
+                .footer {{
+                    border-top-color: #2d2d44;
+                    color: #999;
+                }}
             }}
         </style>
     </head>
     <body>
         <div class="header">
             <h1>🔑 Réinitialisation de mot de passe</h1>
+            <p>EcoCapital - Votre Partenaire Financier de Confiance</p>
         </div>
         <div class="content">
-            <p>Bonjour {user_name},</p>
+            <p><strong>Bonjour {user_name},</strong></p>
             
             <p>Vous avez demandé la réinitialisation de votre mot de passe pour votre compte EcoCapital.</p>
             
             <p>Cliquez sur le bouton ci-dessous pour définir un nouveau mot de passe :</p>
             
             <div style="text-align: center;">
-                <a href="{reset_link}" class="button">Réinitialiser mon mot de passe</a>
+                <a href="{reset_link}" class="button">🔐 Réinitialiser mon mot de passe</a>
             </div>
             
             <div class="warning">
@@ -146,19 +211,35 @@ def send_reset_password_email(email, token, user_name=""):
                 Si vous n'avez pas demandé cette réinitialisation, ignorez simplement cet email.
             </div>
             
+            <div class="info-box">
+                💡 <strong>Conseil de sécurité :</strong><br>
+                Utilisez un mot de passe d'au moins 8 caractères avec une majuscule, une minuscule et un chiffre.
+            </div>
+            
             <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
-            <p style="word-break: break-all; background: #f0f0f0; padding: 10px; border-radius: 4px; font-size: 12px;">
+            <div class="link-box">
                 {reset_link}
+            </div>
+            
+            <p>Pour toute question, n'hésitez pas à contacter notre équipe support à l'adresse : <strong>support@ecocapital.com</strong></p>
+            
+            <p style="margin-top: 20px;">
+                Cordialement,<br>
+                <strong>L'équipe EcoCapital</strong>
             </p>
             
-            <p>Pour toute question, n'hésitez pas à contacter notre équipe support.</p>
-            
-            <p>Cordialement,<br>
-            <strong>L'équipe EcoCapital</strong></p>
+            <div style="text-align: center; margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                <p style="margin: 0; font-size: 14px; color: #666;">
+                    🌍 <strong>EcoCapital</strong> - Votre Partenaire Financier de Confiance
+                </p>
+            </div>
         </div>
         <div class="footer">
-            <p>EcoCapital - Votre Partenaire Financier de Confiance</p>
             <p>Cet email a été envoyé automatiquement, veuillez ne pas y répondre.</p>
+            <p>© 2024 EcoCapital. Tous droits réservés.</p>
+            <p style="margin-top: 10px; font-size: 11px; color: #999;">
+                Ce message est confidentiel et destiné uniquement à la personne ou à l'entité à laquelle il est adressé.
+            </p>
         </div>
     </body>
     </html>
@@ -178,7 +259,11 @@ def send_reset_password_email(email, token, user_name=""):
     ⚠️ Ce lien expirera dans 24 heures.
     Si vous n'avez pas demandé cette réinitialisation, ignorez simplement cet email.
     
-    Pour toute question, n'hésitez pas à contacter notre équipe support.
+    Conseils de sécurité :
+    - Utilisez un mot de passe d'au moins 8 caractères
+    - Incluez une majuscule, une minuscule et un chiffre
+    
+    Pour toute question, contactez-nous à support@ecocapital.com
     
     Cordialement,
     L'équipe EcoCapital
@@ -187,7 +272,7 @@ def send_reset_password_email(email, token, user_name=""):
     return send_email(email, "🔑 Réinitialisation de votre mot de passe EcoCapital", html_content, text_content)
 
 def send_password_changed_notification(email, user_name=""):
-    """Envoie une notification de changement de mot de passe"""
+    """Envoie une notification de changement de mot de passe via Mailtrap"""
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -201,19 +286,25 @@ def send_password_changed_notification(email, user_name=""):
                 max-width: 600px;
                 margin: 0 auto;
                 padding: 20px;
+                background-color: #f5f7fa;
             }}
             .header {{
                 background: linear-gradient(135deg, #28a745, #20c997);
                 color: white;
-                padding: 20px;
+                padding: 30px 20px;
                 text-align: center;
                 border-radius: 10px 10px 0 0;
             }}
+            .header h1 {{
+                margin: 0;
+                font-size: 24px;
+            }}
             .content {{
-                background: #f8f9fa;
+                background: white;
                 padding: 30px;
                 border-radius: 0 0 10px 10px;
                 border: 1px solid #e0e0e0;
+                border-top: none;
             }}
             .footer {{
                 margin-top: 30px;
@@ -230,29 +321,63 @@ def send_password_changed_notification(email, user_name=""):
                 margin: 15px 0;
                 border-radius: 4px;
             }}
+            .success-box {{
+                background: #d4edda;
+                border-left: 4px solid #28a745;
+                padding: 15px;
+                margin: 15px 0;
+                border-radius: 4px;
+            }}
+            @media (prefers-color-scheme: dark) {{
+                body {{
+                    background-color: #1a1a2e;
+                }}
+                .content {{
+                    background: #1e2130;
+                    color: #f0f2f6;
+                    border-color: #2d2d44;
+                }}
+                .warning {{
+                    background: #2a2a1a;
+                    border-left-color: #ffc107;
+                }}
+                .success-box {{
+                    background: #1a3a2a;
+                    border-left-color: #28a745;
+                }}
+                .footer {{
+                    border-top-color: #2d2d44;
+                    color: #999;
+                }}
+            }}
         </style>
     </head>
     <body>
         <div class="header">
             <h1>✅ Mot de passe modifié</h1>
+            <p>EcoCapital - Votre Partenaire Financier de Confiance</p>
         </div>
         <div class="content">
-            <p>Bonjour {user_name},</p>
+            <p><strong>Bonjour {user_name},</strong></p>
             
-            <p>Votre mot de passe a été modifié avec succès.</p>
+            <div class="success-box">
+                ✅ Votre mot de passe a été modifié avec succès.
+            </div>
             
             <div class="warning">
-                ⚠️ Si vous n'êtes pas à l'origine de cette modification, <strong>contactez immédiatement</strong> notre support client.
+                ⚠️ <strong>Important :</strong> Si vous n'êtes pas à l'origine de cette modification, <strong>contactez immédiatement</strong> notre support client à support@ecocapital.com ou par téléphone au +242 06 931 31 06.
             </div>
             
             <p>Pour toute question, n'hésitez pas à contacter notre équipe support.</p>
             
-            <p>Cordialement,<br>
-            <strong>L'équipe EcoCapital</strong></p>
+            <p style="margin-top: 20px;">
+                Cordialement,<br>
+                <strong>L'équipe EcoCapital</strong>
+            </p>
         </div>
         <div class="footer">
-            <p>EcoCapital - Votre Partenaire Financier de Confiance</p>
             <p>Cet email a été envoyé automatiquement, veuillez ne pas y répondre.</p>
+            <p>© 2024 EcoCapital. Tous droits réservés.</p>
         </div>
     </body>
     </html>
@@ -263,9 +388,9 @@ def send_password_changed_notification(email, user_name=""):
     
     Bonjour {user_name},
     
-    Votre mot de passe a été modifié avec succès.
+    ✅ Votre mot de passe a été modifié avec succès.
     
-    ⚠️ Si vous n'êtes pas à l'origine de cette modification, contactez immédiatement notre support client.
+    ⚠️ Important : Si vous n'êtes pas à l'origine de cette modification, contactez immédiatement notre support client.
     
     Pour toute question, n'hésitez pas à contacter notre équipe support.
     
@@ -447,15 +572,16 @@ def set_custom_theme():
         }}
         
         .forgot-password-link {{
-            color: #4a6fa5 !important;
+            color: #ffffff !important;
             text-decoration: none !important;
             cursor: pointer;
             font-size: 0.9rem;
+            opacity: 0.9;
         }}
         
         .forgot-password-link:hover {{
             text-decoration: underline !important;
-            color: #166088 !important;
+            opacity: 1;
         }}
         
         ::-webkit-scrollbar {{
@@ -567,6 +693,23 @@ def set_custom_theme():
         .password-requirements li:before {{
             content: "• ";
             color: #4a6fa5;
+        }}
+        
+        .mailtrap-info {{
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 10px 0;
+            font-size: 14px;
+        }}
+        
+        @media (prefers-color-scheme: dark) {{
+            .mailtrap-info {{
+                background: #1a2a3a;
+                border-color: #4a6fa5;
+                color: #e3f2fd;
+            }}
         }}
     </style>
     """, unsafe_allow_html=True)
@@ -1211,6 +1354,17 @@ def forgot_password_page():
     </div>
     """, unsafe_allow_html=True)
     
+    # Afficher les informations Mailtrap
+    st.markdown("""
+    <div class="mailtrap-info">
+        <strong>📧 Envoi d'email via Mailtrap (Environnement de test)</strong><br>
+        Les emails seront envoyés à votre boîte Mailtrap. 
+        <a href="https://mailtrap.io/inboxes" target="_blank" style="color: #4a6fa5;">
+            Cliquez ici pour voir vos emails
+        </a>
+    </div>
+    """, unsafe_allow_html=True)
+    
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
@@ -1221,7 +1375,7 @@ def forgot_password_page():
             
             st.markdown("""
             <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 10px;">
-                Nous vous enverrons un lien pour réinitialiser votre mot de passe.
+                📧 Nous vous enverrons un lien pour réinitialiser votre mot de passe via Mailtrap.
             </div>
             """, unsafe_allow_html=True)
             
@@ -1241,19 +1395,28 @@ def forgot_password_page():
                             user = db.get_user_by_email(email)
                             user_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() or "Utilisateur"
                             
-                            # Envoyer l'email
+                            # Envoyer l'email via Mailtrap
                             email_sent, message = send_reset_password_email(email, result, user_name)
                             
                             if email_sent:
-                                st.success("✅ Un lien de réinitialisation a été envoyé à votre adresse email.")
-                                st.info("📧 Consultez votre boîte mail (et vos spams) pour réinitialiser votre mot de passe.")
+                                st.success("✅ Un lien de réinitialisation a été envoyé à votre adresse email via Mailtrap.")
+                                st.info("📧 Consultez votre boîte Mailtrap pour voir l'email : https://mailtrap.io/inboxes")
+                                
+                                # Afficher les détails de l'email pour le débogage
+                                with st.expander("🔍 Détails de l'email (débogage)"):
+                                    st.code(f"""
+                                    À: {email}
+                                    Sujet: 🔑 Réinitialisation de votre mot de passe EcoCapital
+                                    Token: {result}
+                                    Lien: https://ecocapitale-bm.streamlit.app?reset_token={result}
+                                    """)
                                 
                                 if st.button("⬅️ Retour à la connexion"):
                                     st.session_state.page = "login"
                                     st.rerun()
                             else:
-                                st.error(f"❌ Erreur lors de l'envoi de l'email: {message}")
-                                st.warning("Veuillez vérifier la configuration email ou réessayer plus tard.")
+                                st.error(f"❌ Erreur lors de l'envoi de l'email via Mailtrap: {message}")
+                                st.warning("Vérifiez vos identifiants Mailtrap dans la configuration.")
                         else:
                             st.error(f"❌ {result}")
                 else:
@@ -1342,7 +1505,7 @@ def reset_password_page():
                 else:
                     success, result = db.reset_password(token, new_password)
                     if success:
-                        # Envoyer une notification de changement de mot de passe
+                        # Envoyer une notification de changement de mot de passe via Mailtrap
                         send_password_changed_notification(email, user_name)
                         
                         st.success("✅ Mot de passe réinitialisé avec succès !")
@@ -1416,7 +1579,7 @@ def change_password_page():
                     )
                     
                     if success:
-                        # Envoyer une notification
+                        # Envoyer une notification via Mailtrap
                         user_name = f"{st.session_state.user.get('first_name', '')} {st.session_state.user.get('last_name', '')}".strip() or "Utilisateur"
                         send_password_changed_notification(st.session_state.user['email'], user_name)
                         
