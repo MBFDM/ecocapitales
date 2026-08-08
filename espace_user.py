@@ -28,9 +28,9 @@ import re
 EMAIL_CONFIG = {
     'smtp_server': 'sandbox.smtp.mailtrap.io',  # Serveur Mailtrap
     'smtp_port': 2525,  # Port Mailtrap (ou 587 selon votre plan)
-    'smtp_username': 'votre_username_mailtrap',  # À remplacer
-    'smtp_password': 'votre_password_mailtrap',  # À remplacer
-    'from_email': 'noreply@ecocapital.com',
+    'smtp_username': 'b48ea7f93a584e',  # À remplacer
+    'smtp_password': '073c6079da2e08',  # À remplacer
+    'from_email': 'bayonnefrederic09@gmail.com',
     'from_name': 'EcoCapital - Support'
 }
 
