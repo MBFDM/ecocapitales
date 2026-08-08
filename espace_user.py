@@ -70,7 +70,7 @@ def send_email(to_email, subject, html_content, text_content=""):
 def send_reset_password_email(email, token, user_name=""):
     """Envoie l'email de réinitialisation du mot de passe via Mailtrap"""
     # Construction du lien de réinitialisation
-    base_url = "https://ecocapitale-bm.streamlit.app"  # À adapter selon votre URL
+    base_url = "https://ecocapitales-client.streamlit.app"  # À adapter selon votre URL
     reset_link = f"{base_url}?reset_token={token}"
     
     # Contenu HTML de l'email
@@ -1408,7 +1408,7 @@ def forgot_password_page():
                                     À: {email}
                                     Sujet: 🔑 Réinitialisation de votre mot de passe EcoCapital
                                     Token: {result}
-                                    Lien: https://ecocapitale-bm.streamlit.app?reset_token={result}
+                                    Lien: https://ecocapitales-client.streamlit.app?reset_token={result}
                                     """)
                                 
                                 # Bouton de retour après succès (avec key unique)
