@@ -228,8 +228,8 @@ def get_pays_from_phone(phone):
     pays_tries = sorted(PAYS_INDICATIFS, key=lambda x: len(x['indicatif']), reverse=True)
     
     for pays in pays_tries:
-        indicatif = pays['indicatif']
-        if phone_clean.startswith(indicatif.replace('+', '')) or phone_clean.startswith(indicatif):
+        indicatif = pays['indicatif'].replace('+', '')
+        if phone_clean.startswith(indicatif):
             return pays
     
     return None
@@ -617,6 +617,7 @@ class Database:
         try:
             self.cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
             
+            # Vérifier si la table utilisateurs existe
             self.cursor.execute("""
                 SELECT COUNT(*) as cnt FROM information_schema.tables 
                 WHERE table_schema = 'ecocapital' AND table_name = 'utilisateurs'
@@ -644,25 +645,51 @@ class Database:
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
                 """)
             
-            # Table des tokens de réinitialisation
+            # Vérifier si la table password_reset_tokens existe
             self.cursor.execute("""
-                CREATE TABLE IF NOT EXISTS password_reset_tokens (
-                    id VARCHAR(36) NOT NULL PRIMARY KEY,
-                    user_id VARCHAR(36) NOT NULL,
-                    token VARCHAR(10) NOT NULL,
-                    phone VARCHAR(50) NOT NULL,
-                    country_code VARCHAR(10),
-                    country_name VARCHAR(100),
-                    expires_at TIMESTAMP NOT NULL,
-                    used BOOLEAN DEFAULT FALSE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    KEY idx_reset_user (user_id),
-                    KEY idx_reset_token (token),
-                    KEY idx_reset_phone (phone),
-                    FOREIGN KEY (user_id) REFERENCES utilisateurs(id) ON DELETE CASCADE
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                SELECT COUNT(*) as cnt FROM information_schema.tables 
+                WHERE table_schema = 'ecocapital' AND table_name = 'password_reset_tokens'
             """)
+            token_table_exists = self.cursor.fetchone()['cnt'] > 0
             
+            if token_table_exists:
+                # Vérifier les colonnes existantes
+                existing_token_cols = self._get_existing_columns('password_reset_tokens')
+                
+                # Ajouter les colonnes manquantes si nécessaire
+                required_token_cols = {
+                    'country_code': 'VARCHAR(10)',
+                    'country_name': 'VARCHAR(100)'
+                }
+                
+                for col_name, col_def in required_token_cols.items():
+                    if col_name not in existing_token_cols:
+                        try:
+                            self.cursor.execute(f"ALTER TABLE password_reset_tokens ADD COLUMN {col_name} {col_def}")
+                            print(f"✅ Colonne {col_name} ajoutée à password_reset_tokens")
+                        except Error as e:
+                            print(f"⚠️ Impossible d'ajouter {col_name}: {e}")
+            else:
+                # Créer la table des tokens
+                self.cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                        id VARCHAR(36) NOT NULL PRIMARY KEY,
+                        user_id VARCHAR(36) NOT NULL,
+                        token VARCHAR(10) NOT NULL,
+                        phone VARCHAR(50) NOT NULL,
+                        country_code VARCHAR(10),
+                        country_name VARCHAR(100),
+                        expires_at TIMESTAMP NOT NULL,
+                        used BOOLEAN DEFAULT FALSE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        KEY idx_reset_user (user_id),
+                        KEY idx_reset_token (token),
+                        KEY idx_reset_phone (phone),
+                        FOREIGN KEY (user_id) REFERENCES utilisateurs(id) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                """)
+            
+            # Les autres tables
             tables_sql = [
                 """CREATE TABLE IF NOT EXISTS avi_requests (
                     id VARCHAR(50) NOT NULL PRIMARY KEY,
@@ -737,15 +764,27 @@ class Database:
             # Insérer le nouveau token
             expires_at = datetime.now() + timedelta(minutes=10)
             
-            if pays_info:
-                self.cursor.execute(
-                    """INSERT INTO password_reset_tokens 
-                       (id, user_id, token, phone, country_code, country_name, expires_at, created_at) 
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())""",
-                    (str(uuid.uuid4()), user_id, token, phone, 
-                     pays_info['code'], pays_info['pays'], expires_at)
-                )
+            # Vérifier d'abord les colonnes existantes
+            existing_cols = self._get_existing_columns('password_reset_tokens')
+            
+            if 'country_code' in existing_cols and 'country_name' in existing_cols:
+                if pays_info:
+                    self.cursor.execute(
+                        """INSERT INTO password_reset_tokens 
+                           (id, user_id, token, phone, country_code, country_name, expires_at, created_at) 
+                           VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())""",
+                        (str(uuid.uuid4()), user_id, token, phone, 
+                         pays_info['code'], pays_info['pays'], expires_at)
+                    )
+                else:
+                    self.cursor.execute(
+                        """INSERT INTO password_reset_tokens 
+                           (id, user_id, token, phone, expires_at, created_at) 
+                           VALUES (%s, %s, %s, %s, %s, NOW())""",
+                        (str(uuid.uuid4()), user_id, token, phone, expires_at)
+                    )
             else:
+                # Version simplifiée sans les colonnes pays
                 self.cursor.execute(
                     """INSERT INTO password_reset_tokens 
                        (id, user_id, token, phone, expires_at, created_at) 
@@ -830,14 +869,23 @@ class Database:
             # Déterminer le pays
             pays_info = get_pays_from_phone(phone)
             
-            if pays_info:
-                self.cursor.execute(
-                    """INSERT INTO utilisateurs 
-                       (id, first_name, last_name, email, phone, country_code, country_name, password) 
-                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
-                    (user_id, first_name, last_name, email, phone, 
-                     pays_info['code'], pays_info['pays'], hashed_pw)
-                )
+            # Vérifier les colonnes existantes dans utilisateurs
+            existing_cols = self._get_existing_columns('utilisateurs')
+            
+            if 'country_code' in existing_cols and 'country_name' in existing_cols:
+                if pays_info:
+                    self.cursor.execute(
+                        """INSERT INTO utilisateurs 
+                           (id, first_name, last_name, email, phone, country_code, country_name, password) 
+                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+                        (user_id, first_name, last_name, email, phone, 
+                         pays_info['code'], pays_info['pays'], hashed_pw)
+                    )
+                else:
+                    self.cursor.execute(
+                        "INSERT INTO utilisateurs (id, first_name, last_name, email, phone, password) VALUES (%s,%s,%s,%s,%s,%s)",
+                        (user_id, first_name, last_name, email, phone, hashed_pw)
+                    )
             else:
                 self.cursor.execute(
                     "INSERT INTO utilisateurs (id, first_name, last_name, email, phone, password) VALUES (%s,%s,%s,%s,%s,%s)",
@@ -853,7 +901,7 @@ class Database:
         """Méthode existante modifiée pour utiliser create_user_with_country"""
         return self.create_user_with_country(first_name, last_name, email, phone, password)
 
-    # ==================== AUTRES MÉTHODES (inchangées) ====================
+    # ==================== AUTRES MÉTHODES ====================
     def send_message_with_attachment(self, user_id, sender, content, file_bytes, filename, file_type):
         try:
             msg_id = str(uuid.uuid4())
@@ -1567,7 +1615,7 @@ def auth_page():
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
-# DASHBOARD (inchangé)
+# DASHBOARD
 # ============================================================
 def dashboard_page():
     set_custom_theme()
@@ -1622,7 +1670,7 @@ def dashboard_page():
         st.info("Aucune activité récente")
 
 # ============================================================
-# PAGE DEMANDE AVI (inchangé)
+# PAGE DEMANDE AVI
 # ============================================================
 def avi_request_page():
     set_custom_theme()
@@ -1801,7 +1849,7 @@ def avi_request_page():
                         st.error("⚠️ Veuillez confirmer les informations")
 
 # ============================================================
-# PAGE MES AVI (inchangé)
+# PAGE MES AVI
 # ============================================================
 def my_avi_page():
     set_custom_theme()
@@ -2099,7 +2147,7 @@ def my_avi_page():
                     st.error(f"Erreur lors de la génération du PDF: {str(e)}")
 
 # ============================================================
-# PAGE MESSAGES (inchangé)
+# PAGE MESSAGES
 # ============================================================
 def messages_page():
     set_custom_theme()
