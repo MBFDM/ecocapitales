@@ -21,68 +21,23 @@ from email.mime.multipart import MIMEMultipart
 import re
 
 # ============================================================
-# CONFIGURATION EMAIL (MAILTRAP - ENVIRONNEMENT DE TEST)
-# ============================================================
-# Inscrivez-vous sur https://mailtrap.io/ et créez un compte
-# Récupérez vos identifiants dans la section "SMTP Settings"
-#EMAIL_CONFIG = {
-#    'smtp_server': 'live.smtp.mailtrap.io',  # Serveur Mailtrap
-#    'smtp_port': 587,  # Port Mailtrap (ou 587 selon votre plan)
-#    'smtp_username': 'api',  # À remplacer
-#    'smtp_password': 'dba914abfb2e8ee4d29c63c84e62ce16',  # À remplacer
-#    'from_email': 'noreply@demomailtrap.com',
-#    'from_name': 'EcoCapital - Support'
-#}
-
-# ============================================================
-# FONCTIONS D'ENVOI D'EMAIL AVEC MAILTRAP
-# ============================================================
-#def send_email(to_email, subject, html_content, text_content=""):
-#    """Envoie un email via Mailtrap (environnement de test)"""
-#    try:
-        # Créer le message
-#        msg = MIMEMultipart('alternative')
-#        msg['Subject'] = subject
-#        msg['From'] = f"{EMAIL_CONFIG['from_name']} <{EMAIL_CONFIG['from_email']}>"
-#        msg['To'] = to_email
-        
-        # Ajouter les versions texte et HTML
-#        if text_content:
-#            part_text = MIMEText(text_content, 'plain')
-#            msg.attach(part_text)
-#        
-#        part_html = MIMEText(html_content, 'html')
-#        msg.attach(part_html)
-        
-        # Connexion au serveur Mailtrap
-#        with smtplib.SMTP(EMAIL_CONFIG['smtp_server'], EMAIL_CONFIG['smtp_port']) as server:
-#            server.starttls()
-#            server.login(EMAIL_CONFIG['smtp_username'], EMAIL_CONFIG['smtp_password'])
-#            server.send_message(msg)
-        
-#        print(f"✅ Email envoyé à {to_email} via Mailtrap")
-#        return True, "Email envoyé avec succès (via Mailtrap)"
-        
-#    except Exception as e:
-#        print(f"❌ Erreur d'envoi d'email via Mailtrap: {e}")
-#        return False, str(e)
-import requests
-
-# ============================================================
 # CONFIGURATION API MAILTRAP
 # ============================================================
-MAILTRAP_API_KEY = "dba914abfb2e8ee4d29c63c84e62ce16"  # Récupérez dans Email Sending -> API
-MAILTRAP_INBOX_ID = "2807750"  # Récupérez dans l'URL de votre inbox
+MAILTRAP_API_KEY = "dba914abfb2e8ee4d29c63c84e62ce16"
+MAILTRAP_INBOX_ID = "2807750"
 
 def send_email_api(to_email, subject, html_content, text_content=""):
-    """Envoie un email via l'API Mailtrap (recommandé)"""
+    """Envoie un email via l'API Mailtrap"""
     try:
-        url = f"https://send.api.mailtrap.io/api/send"
+        url = "https://send.api.mailtrap.io/api/send"
         
         headers = {
             "Authorization": f"Bearer {MAILTRAP_API_KEY}",
             "Content-Type": "application/json"
         }
+        
+        # Nettoyer le texte pour la version text
+        text_content = text_content or re.sub(r'<[^>]+>', '', html_content)
         
         data = {
             "from": {
@@ -96,7 +51,7 @@ def send_email_api(to_email, subject, html_content, text_content=""):
             ],
             "subject": subject,
             "html": html_content,
-            "text": text_content or html_content.replace('<br>', '\n').replace('</p>', '\n').replace('<p>', '').replace('</div>', '')
+            "text": text_content
         }
         
         response = requests.post(url, json=data, headers=headers)
@@ -112,11 +67,16 @@ def send_email_api(to_email, subject, html_content, text_content=""):
     except Exception as e:
         print(f"❌ Erreur d'envoi d'email: {e}")
         return False, str(e)
-        
+
+# Alias pour garder la compatibilité
+def send_email(to_email, subject, html_content, text_content=""):
+    """Alias pour send_email_api"""
+    return send_email_api(to_email, subject, html_content, text_content)
+
 def send_reset_password_email(email, token, user_name=""):
     """Envoie l'email de réinitialisation du mot de passe via Mailtrap"""
     # Construction du lien de réinitialisation
-    base_url = "https://ecocapitales-client.streamlit.app"  # À adapter selon votre URL
+    base_url = "https://ecocapitales-client.streamlit.app"
     reset_link = f"{base_url}?reset_token={token}"
     
     # Contenu HTML de l'email
@@ -204,11 +164,6 @@ def send_reset_password_email(email, token, user_name=""):
                 font-family: monospace;
                 margin: 10px 0;
             }}
-            .logo-text {{
-                font-size: 28px;
-                font-weight: bold;
-                color: #4a6fa5;
-            }}
             @media (prefers-color-scheme: dark) {{
                 body {{
                     background-color: #1a1a2e;
@@ -283,15 +238,11 @@ def send_reset_password_email(email, token, user_name=""):
         <div class="footer">
             <p>Cet email a été envoyé automatiquement, veuillez ne pas y répondre.</p>
             <p>© 2024 EcoCapital. Tous droits réservés.</p>
-            <p style="margin-top: 10px; font-size: 11px; color: #999;">
-                Ce message est confidentiel et destiné uniquement à la personne ou à l'entité à laquelle il est adressé.
-            </p>
         </div>
     </body>
     </html>
     """
     
-    # Version texte pour les clients qui ne supportent pas HTML
     text_content = f"""
     Réinitialisation de mot de passe - EcoCapital
     
@@ -411,7 +362,7 @@ def send_password_changed_notification(email, user_name=""):
             </div>
             
             <div class="warning">
-                ⚠️ <strong>Important :</strong> Si vous n'êtes pas à l'origine de cette modification, <strong>contactez immédiatement</strong> notre support client à support@ecocapital.com ou par téléphone au +242 06 931 31 06.
+                ⚠️ <strong>Important :</strong> Si vous n'êtes pas à l'origine de cette modification, <strong>contactez immédiatement</strong> notre support client.
             </div>
             
             <p>Pour toute question, n'hésitez pas à contacter notre équipe support.</p>
@@ -1387,10 +1338,7 @@ def load_lottieurl(url):
         return None
 
 # ============================================================
-# PAGE MOT DE PASSE OUBLIÉ (VERSION COMPLÈTE ET CORRIGÉE)
-# ============================================================
-# ============================================================
-# PAGE MOT DE PASSE OUBLIÉ (VERSION CORRIGÉE - SANS BOUTONS CONDITIONNELS)
+# PAGE MOT DE PASSE OUBLIÉ
 # ============================================================
 def forgot_password_page():
     """Page pour demander la réinitialisation du mot de passe"""
@@ -1403,11 +1351,10 @@ def forgot_password_page():
     </div>
     """, unsafe_allow_html=True)
     
-    # Afficher les informations Mailtrap
     st.markdown("""
     <div class="mailtrap-info">
-        <strong>📧 Envoi d'email via Mailtrap (Environnement de test)</strong><br>
-        Les emails seront envoyés à votre boîte Mailtrap. 
+        <strong>📧 Envoi d'email via Mailtrap API</strong><br>
+        Les emails seront envoyés via l'API Mailtrap.
         <a href="https://mailtrap.io/inboxes" target="_blank" style="color: #4a6fa5;">
             Cliquez ici pour voir vos emails
         </a>
@@ -1419,7 +1366,6 @@ def forgot_password_page():
     with col2:
         st.markdown('<div class="login-container">', unsafe_allow_html=True)
         
-        # Utiliser st.session_state pour stocker l'état du formulaire
         if 'reset_email_sent' not in st.session_state:
             st.session_state.reset_email_sent = False
         if 'reset_email' not in st.session_state:
@@ -1432,7 +1378,7 @@ def forgot_password_page():
             
             st.markdown("""
             <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 10px;">
-                📧 Nous vous enverrons un lien pour réinitialiser votre mot de passe via Mailtrap.
+                📧 Nous vous enverrons un lien pour réinitialiser votre mot de passe.
             </div>
             """, unsafe_allow_html=True)
             
@@ -1440,30 +1386,25 @@ def forgot_password_page():
             
             if submitted:
                 if email:
-                    # Valider le format de l'email
                     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
                     if not re.match(email_pattern, email):
                         st.error("⚠️ Format d'email invalide.")
                         st.session_state.reset_email_sent = False
                     else:
-                        # Créer le token
                         success, result = db.create_password_reset_token(email)
                         if success:
-                            # Récupérer le nom de l'utilisateur
                             user = db.get_user_by_email(email)
                             user_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() or "Utilisateur"
                             
-                            # Envoyer l'email via Mailtrap
                             email_sent, message = send_reset_password_email(email, result, user_name)
                             
                             if email_sent:
                                 st.session_state.reset_email_sent = True
                                 st.session_state.reset_email = email
                                 st.session_state.reset_token = result
-                                st.success("✅ Un lien de réinitialisation a été envoyé à votre adresse email via Mailtrap.")
-                                st.info("📧 Consultez votre boîte Mailtrap pour voir l'email : https://mailtrap.io/inboxes")
+                                st.success("✅ Un lien de réinitialisation a été envoyé à votre adresse email.")
+                                st.info("📧 Consultez votre boîte email (pensez à vérifier les spams).")
                                 
-                                # Afficher les détails de l'email pour le débogage
                                 with st.expander("🔍 Détails de l'email (débogage)"):
                                     st.code(f"""
                                     À: {email}
@@ -1473,8 +1414,12 @@ def forgot_password_page():
                                     """)
                             else:
                                 st.session_state.reset_email_sent = False
-                                st.error(f"❌ Erreur lors de l'envoi de l'email via Mailtrap: {message}")
-                                st.warning("Vérifiez vos identifiants Mailtrap dans la configuration.")
+                                st.error(f"❌ Erreur lors de l'envoi de l'email: {message}")
+                                st.warning("💡 Veuillez vérifier la configuration email.")
+                                
+                                # Afficher le lien en cas d'échec
+                                reset_link = f"https://ecocapitales-client.streamlit.app?reset_token={result}"
+                                st.info(f"🔗 **Lien de réinitialisation (copiez-le) :** {reset_link}")
                         else:
                             st.session_state.reset_email_sent = False
                             st.error(f"❌ {result}")
@@ -1482,9 +1427,7 @@ def forgot_password_page():
                     st.session_state.reset_email_sent = False
                     st.warning("Veuillez saisir votre adresse email.")
         
-        # Bouton de retour - TOUJOURS PRÉSENT, en dehors de toute condition
         if st.button("⬅️ Retour à la page de connexion", key="back_to_login_bottom"):
-            # Réinitialiser les variables de session
             st.session_state.reset_email_sent = False
             st.session_state.reset_email = ""
             st.session_state.reset_token = ""
@@ -1500,7 +1443,6 @@ def reset_password_page():
     """Page pour définir un nouveau mot de passe via token"""
     set_custom_theme()
     
-    # Récupérer le token de l'URL
     query_params = st.query_params
     token = query_params.get("reset_token", [None])[0]
     
@@ -1511,7 +1453,6 @@ def reset_password_page():
             st.rerun()
         return
     
-    # Vérifier la validité du token
     valid, email = db.verify_reset_token(token)
     
     if not valid:
@@ -1522,7 +1463,6 @@ def reset_password_page():
             st.rerun()
         return
     
-    # Récupérer les infos de l'utilisateur
     user = db.get_user_by_email(email)
     user_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() if user else "Utilisateur"
     
@@ -1556,7 +1496,6 @@ def reset_password_page():
             submitted = st.form_submit_button("🔑 Réinitialiser le mot de passe", use_container_width=True)
             
             if submitted:
-                # Validation du mot de passe
                 if not new_password:
                     st.error("⚠️ Veuillez saisir un mot de passe.")
                 elif len(new_password) < 8:
@@ -1570,7 +1509,6 @@ def reset_password_page():
                 else:
                     success, result = db.reset_password(token, new_password)
                     if success:
-                        # Envoyer une notification de changement de mot de passe via Mailtrap
                         send_password_changed_notification(email, user_name)
                         
                         st.success("✅ Mot de passe réinitialisé avec succès !")
@@ -1622,7 +1560,6 @@ def change_password_page():
             submitted = st.form_submit_button("🔑 Changer le mot de passe", use_container_width=True)
             
             if submitted:
-                # Validation
                 if not current_password:
                     st.warning("Veuillez saisir votre mot de passe actuel.")
                 elif not new_password:
@@ -1636,7 +1573,6 @@ def change_password_page():
                 elif new_password != confirm_password:
                     st.warning("⚠️ Les nouveaux mots de passe ne correspondent pas.")
                 else:
-                    # Mettre à jour le mot de passe
                     success, result = db.update_password(
                         st.session_state.user['id'],
                         current_password,
@@ -1644,7 +1580,6 @@ def change_password_page():
                     )
                     
                     if success:
-                        # Envoyer une notification via Mailtrap
                         user_name = f"{st.session_state.user.get('first_name', '')} {st.session_state.user.get('last_name', '')}".strip() or "Utilisateur"
                         send_password_changed_notification(st.session_state.user['email'], user_name)
                         
@@ -1670,9 +1605,6 @@ def account_settings_page():
     </div>
     """, unsafe_allow_html=True)
     
-    # Informations du compte
-    st.markdown("### 👤 Informations personnelles")
-    
     user = st.session_state.user
     col1, col2 = st.columns(2)
     
@@ -1685,8 +1617,6 @@ def account_settings_page():
         st.info(f"**Téléphone:** {user.get('phone', 'Non renseigné')}")
     
     st.markdown("---")
-    
-    # Section sécurité
     st.markdown("### 🔒 Sécurité")
     
     col1, col2 = st.columns(2)
@@ -1736,7 +1666,6 @@ def auth_page():
                 email = st.text_input("Email", placeholder="exemple@email.com")
                 password = st.text_input("Mot de passe", type="password", placeholder="..........")
                 
-                # Lien "Mot de passe oublié"
                 st.markdown("""
                 <div style="text-align: right; margin: 5px 0;">
                     <a href="#" onclick="alert('Redirection vers la page de réinitialisation')" 
@@ -1757,7 +1686,6 @@ def auth_page():
                         else:
                             st.error("Email ou mot de passe incorrect")
             
-            # Bouton "Mot de passe oublié"
             if st.button("🔑 Mot de passe oublié ?", use_container_width=True):
                 st.session_state.page = "forgot_password"
                 st.rerun()
@@ -2533,7 +2461,6 @@ def main():
     if 'page' not in st.session_state:
         st.session_state.page = "login"
 
-    # Gestion des pages d'authentification
     if not st.session_state.logged_in:
         query_params = st.query_params
         token = query_params.get("reset_token", [None])[0]
@@ -2551,7 +2478,6 @@ def main():
             auth_page()
             return
 
-    # Pages pour utilisateur connecté
     set_custom_theme()
     
     with st.sidebar:
@@ -2563,7 +2489,6 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
-        # Menu principal
         menu_options = ["Dashboard", "Demande AVI", "Mes AVI", "Messages", "Paramètres", "Déconnexion"]
         menu_icons = ["speedometer2", "file-text", "folder-check", "chat-dots", "gear", "box-arrow-right"]
         
@@ -2588,7 +2513,6 @@ def main():
         
         st.session_state.menu = menu
 
-    # Gestion des pages
     if st.session_state.page == "change_password":
         change_password_page()
         return
