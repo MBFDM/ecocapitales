@@ -1557,16 +1557,40 @@ def my_avi_page():
                     pass
                 
                 try:
-                    output = pdf.output()
-                    if isinstance(output, str):
-                        output = output.encode('latin1')
-                except TypeError:
-                    output = pdf.output(dest='S')
-                    if isinstance(output, str):
-                        output = output.encode('latin1')
-                
-                return output
+                    # Essayer d'obtenir le PDF en bytes
+                    pdf_bytes = pdf.output(dest='S')
                     
+                    # Si c'est un bytearray, le convertir en bytes
+                    if isinstance(pdf_bytes, bytearray):
+                        pdf_bytes = bytes(pdf_bytes)
+                    # Si c'est un string, l'encoder en bytes
+                    elif isinstance(pdf_bytes, str):
+                        pdf_bytes = pdf_bytes.encode('latin1')
+                    
+                    return pdf_bytes
+                    
+                except TypeError:
+                    # Méthode alternative pour certaines versions de FPDF
+                    try:
+                        # Utiliser output avec un buffer BytesIO
+                        buffer = BytesIO()
+                        pdf.output(buffer, dest='S')
+                        pdf_bytes = buffer.getvalue()
+                        buffer.close()
+                        
+                        if isinstance(pdf_bytes, bytearray):
+                            pdf_bytes = bytes(pdf_bytes)
+                        
+                        return pdf_bytes
+                    except:
+                        # Dernière tentative
+                        pdf_bytes = pdf.output()
+                        if isinstance(pdf_bytes, bytearray):
+                            pdf_bytes = bytes(pdf_bytes)
+                        elif isinstance(pdf_bytes, str):
+                            pdf_bytes = pdf_bytes.encode('latin1')
+                        return pdf_bytes
+                        
             except Exception as e:
                 print(f"Erreur generate_avi_pdf: {e}")
                 return None
