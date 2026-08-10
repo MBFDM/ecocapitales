@@ -15,9 +15,6 @@ from num2words import num2words
 import qrcode
 from io import BytesIO
 from PIL import Image
-import re
-import random
-import string
 
 # ============================================================
 # CONFIGURATION STREAMLIT
@@ -30,65 +27,10 @@ st.set_page_config(
 )
 
 # ============================================================
-# FONCTIONS EMAIL (SIMULÉES POUR L'EXEMPLE)
-# ============================================================
-def send_reset_email(email, reset_code):
-    """
-    Envoie un email avec le code de réinitialisation
-    À configurer avec un vrai serveur SMTP en production
-    """
-    try:
-        print(f"📧 [SIMULATION] Email envoyé à {email} avec le code {reset_code}")
-        
-        # En production, décommentez ceci et configurez vos paramètres SMTP
-        """
-        import smtplib
-        from email.mime.text import MIMEText
-        from email.mime.multipart import MIMEMultipart
-        
-        smtp_server = "smtp.gmail.com"
-        smtp_port = 587
-        smtp_username = "votre.email@gmail.com"
-        smtp_password = "votre_mot_de_passe"
-        
-        msg = MIMEMultipart()
-        msg['From'] = smtp_username
-        msg['To'] = email
-        msg['Subject'] = "EcoCapital - Réinitialisation de votre mot de passe"
-        
-        html = f"""
-        <html>
-        <body>
-            <h2>🔐 EcoCapital - Réinitialisation de mot de passe</h2>
-            <p>Bonjour,</p>
-            <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
-            <p>Votre code de confirmation est : <strong>{reset_code}</strong></p>
-            <p>Ce code est valable pendant 15 minutes.</p>
-            <p>Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
-        </body>
-        </html>
-        """
-        
-        msg.attach(MIMEText(html, 'html'))
-        
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()
-        server.login(smtp_username, smtp_password)
-        server.send_message(msg)
-        server.quit()
-        """
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Erreur d'envoi d'email: {e}")
-        return False
-
-# ============================================================
-# CSS STYLE
+# CSS STYLE (IDENTIQUE AU CODE 2)
 # ============================================================
 def set_custom_theme():
-    """Définit les thèmes light et dark avec animations"""
+    """Définit les thèmes light et dark avec animations (identique au Code 2)"""
     st.markdown(f"""
     <style>
         /* ===== THÈME LIGHT ===== */
@@ -193,6 +135,17 @@ def set_custom_theme():
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
         }}
         
+        /* Tableaux */
+        [data-testid="stDataFrame"] {{
+            border-radius: 10px;
+            animation: fadeInUp 0.6s ease-out;
+        }}
+        
+        @keyframes fadeInUp {{
+            from {{ opacity: 0; transform: translateY(20px); }}
+            to {{ opacity: 1; transform: translateY(0); }}
+        }}
+        
         /* Conteneur principal */
         .main-container {{
             background: linear-gradient(135deg, #f8faff 0%, #e6ecff 100%);
@@ -230,6 +183,64 @@ def set_custom_theme():
             }}
         }}
         
+        /* Onglets stylisés */
+        [data-testid="stTabs"] [role="tablist"] {{
+            gap: 5px;
+        }}
+        
+        [data-testid="stTabs"] [role="tab"] {{
+            padding: 10px 20px;
+            border-radius: 8px 8px 0 0;
+            transition: all 0.3s ease;
+        }}
+        
+        [data-testid="stTabs"] [role="tab"] {{
+            background-color: rgba(74, 111, 165, 0.1);
+        }}
+        
+        [data-testid="stTabs"] [aria-selected="true"] {{
+            background-color: #4a6fa5;
+            color: white;
+            font-weight: bold;
+        }}
+        
+        @media (prefers-color-scheme: dark) {{
+            [data-testid="stTabs"] [role="tab"] {{
+                background-color: rgba(22, 96, 136, 0.2);
+            }}
+            
+            [data-testid="stTabs"] [aria-selected="true"] {{
+                background-color: #166088;
+            }}
+        }}
+        
+        /* Cartes personnalisées */
+        .custom-card {{
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            border-left: 4px solid #4a6fa5;
+        }}
+        
+        .custom-card {{
+            background-color: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }}
+        
+        @media (prefers-color-scheme: dark) {{
+            .custom-card {{
+                background-color: #1e2130;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                border-left: 4px solid #166088;
+            }}
+        }}
+        
+        .custom-card:hover {{
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+        }}
+        
         /* Login container */
         .login-container {{
             background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
@@ -241,70 +252,23 @@ def set_custom_theme():
             color: white;
         }}
         
-        /* Password reset styles */
-        .reset-container {{
-            background: white;
-            padding: 2rem;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            max-width: 500px;
-            margin: 0 auto;
+        /* Scrollbar */
+        ::-webkit-scrollbar {{
+            width: 8px;
         }}
         
-        @media (prefers-color-scheme: dark) {{
-            .reset-container {{
-                background: #1e2130;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            }}
+        ::-webkit-scrollbar-track {{
+            background: #f1f1f1;
+            border-radius: 10px;
         }}
         
-        .reset-container .step-indicator {{
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 2rem;
-            position: relative;
-        }}
-        
-        .reset-container .step {{
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            flex: 1;
-        }}
-        
-        .reset-container .step .circle {{
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: #e0e0e0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            color: #666;
-            position: relative;
-            z-index: 2;
-        }}
-        
-        .reset-container .step .circle.active {{
+        ::-webkit-scrollbar-thumb {{
             background: #4a6fa5;
-            color: white;
+            border-radius: 10px;
         }}
         
-        .reset-container .step .circle.completed {{
-            background: #48bb78;
-            color: white;
-        }}
-        
-        .reset-container .step .label {{
-            margin-top: 0.5rem;
-            font-size: 0.8rem;
-            color: #666;
-        }}
-        
-        .reset-container .step .label.active {{
-            color: #4a6fa5;
-            font-weight: bold;
+        ::-webkit-scrollbar-thumb:hover {{
+            background: #3a5a8f;
         }}
     </style>
     """, unsafe_allow_html=True)
@@ -341,9 +305,11 @@ class Database:
                 )
                 self.cursor = self.connection.cursor(dictionary=True)
                 
+                # Configurer le timeout de session
                 self.cursor.execute("SET SESSION wait_timeout = 28800")
                 self.cursor.execute("SET SESSION interactive_timeout = 28800")
                 
+                # Tester la connexion
                 self.cursor.execute("SELECT 1")
                 print("✅ Connexion MySQL réussie")
                 return
@@ -363,6 +329,7 @@ class Database:
                 print("Reconnexion à MySQL...")
                 self._connect()
             else:
+                # Tester la connexion
                 self.cursor.execute("SELECT 1")
         except (Error, mysql.connector.OperationalError) as e:
             print(f"Connexion perdue, tentative de reconnexion: {e}")
@@ -371,6 +338,15 @@ class Database:
             except Exception as reconnect_error:
                 print(f"Échec de reconnexion: {reconnect_error}")
                 raise
+
+    def keep_alive(self):
+        """Maintient la connexion active"""
+        try:
+            if self.connection and self.connection.is_connected():
+                self.cursor.execute("SELECT 1")
+                self.cursor.fetchone()
+        except:
+            self._connect()
 
     def _get_existing_columns(self, table_name):
         try:
@@ -396,9 +372,7 @@ class Database:
             'password': 'VARCHAR(255) NOT NULL',
             'created_at': 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
             'last_login': 'TIMESTAMP NULL',
-            'is_active': 'BOOLEAN DEFAULT TRUE',
-            'reset_code': 'VARCHAR(10) NULL',
-            'reset_code_expiry': 'TIMESTAMP NULL'
+            'is_active': 'BOOLEAN DEFAULT TRUE'
         }
         
         for col_name, col_def in required_columns.items():
@@ -471,8 +445,6 @@ class Database:
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         last_login TIMESTAMP NULL,
                         is_active BOOLEAN DEFAULT TRUE,
-                        reset_code VARCHAR(10) NULL,
-                        reset_code_expiry TIMESTAMP NULL,
                         PRIMARY KEY (id),
                         UNIQUE KEY uk_email (email)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -536,113 +508,19 @@ class Database:
             print(f"❌ Erreur: {e}")
             st.error(f"Erreur MySQL: {e}")
 
-    # ==================== FONCTIONS DE RÉINITIALISATION ====================
-    
-    def generate_reset_code(self, email):
-        """Génère un code de réinitialisation pour un email"""
-        try:
-            # Vérifier si l'utilisateur existe
-            self.cursor.execute("SELECT id, email FROM utilisateurs WHERE email = %s AND is_active = TRUE", (email,))
-            user = self.cursor.fetchone()
-            
-            if not user:
-                return False, "Aucun compte trouvé avec cet email"
-            
-            # Générer un code aléatoire de 6 chiffres
-            reset_code = ''.join(random.choices(string.digits, k=6))
-            
-            # Définir l'expiration à 15 minutes
-            expiry = datetime.now() + timedelta(minutes=15)
-            
-            # Mettre à jour l'utilisateur
-            self.cursor.execute("""
-                UPDATE utilisateurs 
-                SET reset_code = %s, reset_code_expiry = %s 
-                WHERE id = %s
-            """, (reset_code, expiry, user['id']))
-            
-            self.connection.commit()
-            
-            # Envoyer l'email
-            email_sent = send_reset_email(email, reset_code)
-            
-            if email_sent:
-                return True, reset_code
-            else:
-                return False, "Erreur lors de l'envoi de l'email"
-                
-        except Error as e:
-            return False, str(e)
-    
-    def verify_reset_code(self, email, code):
-        """Vérifie si le code de réinitialisation est valide"""
-        try:
-            self.cursor.execute("""
-                SELECT id, reset_code, reset_code_expiry 
-                FROM utilisateurs 
-                WHERE email = %s AND is_active = TRUE
-            """, (email,))
-            
-            user = self.cursor.fetchone()
-            
-            if not user:
-                return False, "Utilisateur non trouvé"
-            
-            if not user.get('reset_code'):
-                return False, "Aucun code de réinitialisation demandé"
-            
-            if user['reset_code'] != code:
-                return False, "Code incorrect"
-            
-            # Vérifier si le code a expiré
-            if user['reset_code_expiry'] < datetime.now():
-                return False, "Le code a expiré. Veuillez en demander un nouveau."
-            
-            return True, user['id']
-            
-        except Error as e:
-            return False, str(e)
-    
-    def reset_password(self, email, code, new_password):
-        """Réinitialise le mot de passe"""
-        try:
-            # Vérifier le code
-            valid, result = self.verify_reset_code(email, code)
-            
-            if not valid:
-                return False, result
-            
-            user_id = result
-            
-            # Hasher le nouveau mot de passe
-            hashed_pw = hashlib.sha256(new_password.encode()).hexdigest()
-            
-            # Mettre à jour le mot de passe et effacer le code
-            self.cursor.execute("""
-                UPDATE utilisateurs 
-                SET password = %s, reset_code = NULL, reset_code_expiry = NULL 
-                WHERE id = %s
-            """, (hashed_pw, user_id))
-            
-            self.connection.commit()
-            
-            return True, "Mot de passe réinitialisé avec succès"
-            
-        except Error as e:
-            return False, str(e)
-
-    # ==================== AUTRES FONCTIONS ====================
-    
     def send_message_with_attachment(self, user_id, sender, content, file_bytes, filename, file_type):
+        """Envoie un message avec pièce jointe"""
         try:
             msg_id = str(uuid.uuid4())
             
+            # Vérifier si les colonnes attachment existent
             self.cursor.execute("""
                 SHOW COLUMNS FROM messages 
                 WHERE Field IN ('attachment', 'attachment_filename', 'attachment_type')
             """)
             existing_cols = [col['Field'] for col in self.cursor.fetchall()]
             
+            # Ajouter les colonnes si nécessaire
             if 'attachment' not in existing_cols:
                 self.cursor.execute("ALTER TABLE messages ADD COLUMN attachment LONGBLOB")
             if 'attachment_filename' not in existing_cols:
@@ -652,6 +530,7 @@ class Database:
             
             self.connection.commit()
             
+            # Insérer le message avec la pièce jointe
             self.cursor.execute("""
                 INSERT INTO messages (id, user_id, sender, content, attachment, attachment_filename, attachment_type, timestamp)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
@@ -663,6 +542,7 @@ class Database:
             return False, str(e)
 
     def get_user_messages_with_attachments(self, user_id, limit=50):
+        """Récupère les messages d'un utilisateur avec leurs pièces jointes"""
         try:
             self._ensure_connection()
             self.cursor.execute("""
@@ -672,6 +552,7 @@ class Database:
             """, (user_id, limit))
             msgs = self.cursor.fetchall()
             
+            # Marquer les messages comme lus
             self.cursor.execute("""
                 UPDATE messages SET is_read=TRUE 
                 WHERE user_id=%s AND sender='support' AND is_read=FALSE
@@ -682,6 +563,7 @@ class Database:
         except Error:
             return []
 
+    # ==================== UTILISATEURS ====================
     def create_user(self, first_name, last_name, email, phone, password):
         try:
             user_id = str(uuid.uuid4())
@@ -722,6 +604,36 @@ class Database:
         except Error:
             return None
 
+    # ==================== GESTION DES MOTS DE PASSE ====================
+    def update_password_by_email(self, email, new_password):
+        """
+        Met à jour le mot de passe d'un utilisateur directement dans la base de données
+        Retourne (True, message) si succès, (False, erreur) sinon
+        """
+        try:
+            self._ensure_connection()
+            
+            # Vérifier si l'email existe
+            user = self.get_user_by_email(email)
+            if not user:
+                return False, "Aucun compte trouvé avec cet email"
+            
+            # Hasher le nouveau mot de passe
+            hashed_pw = hashlib.sha256(new_password.encode()).hexdigest()
+            
+            # Mettre à jour le mot de passe
+            self.cursor.execute(
+                "UPDATE utilisateurs SET password = %s WHERE email = %s",
+                (hashed_pw, email)
+            )
+            self.connection.commit()
+            
+            return True, "Mot de passe modifié avec succès"
+            
+        except Error as e:
+            return False, f"Erreur technique : {str(e)}"
+
+    # ==================== AVI ====================
     def create_avi_request(self, user_id, user_email, request_data):
         try:
             date_str = datetime.now().strftime('%Y%m%d')
@@ -764,6 +676,7 @@ class Database:
                 stats[key] = 0
         return stats
 
+    # ==================== MESSAGES ====================
     def create_conversation(self, user_id, name):
         try:
             conv_id = str(uuid.uuid4())
@@ -822,9 +735,12 @@ class Database:
             return False, str(e)
 
     def get_user_avis(self, user_id):
+        """Récupère uniquement les AVI associées à l'utilisateur connecté"""
         try:
+            # S'assurer que la connexion est active
             self._ensure_connection()
             
+            # 1. Récupérer les informations de l'utilisateur
             self.cursor.execute('''
             SELECT id, first_name, last_name, email FROM utilisateurs WHERE id = %s
             ''', (user_id,))
@@ -836,6 +752,9 @@ class Database:
             user_first = user.get('first_name', '')
             user_last = user.get('last_name', '')
             
+            print(f"Recherche AVI pour: {user_first} {user_last}")
+            
+            # 2. Rechercher les AVI
             query = '''
             SELECT 
                 reference,
@@ -863,10 +782,20 @@ class Database:
             self.cursor.execute(query, (search_pattern1, search_pattern2))
             results = self.cursor.fetchall()
             
+            print(f"AVI trouvées: {len(results)}")
             return results
             
         except Error as e:
             print(f"Erreur get_user_avis: {e}")
+            # Tentative de reconnexion et réessai
+            try:
+                self._ensure_connection()
+                self.cursor.execute(query, (search_pattern1, search_pattern2))
+                return self.cursor.fetchall()
+            except:
+                return []
+        except Exception as e:
+            print(f"Erreur générale get_user_avis: {e}")
             return []
 
 # ============================================================
@@ -894,168 +823,206 @@ def load_lottieurl(url):
 # PAGE MOT DE PASSE OUBLIÉ
 # ============================================================
 def forgot_password_page():
+    """Page de réinitialisation du mot de passe sans SMTP"""
     set_custom_theme()
-    
-    # Initialiser les étapes si nécessaire
-    if 'reset_step' not in st.session_state:
-        st.session_state.reset_step = 1
-    if 'reset_email' not in st.session_state:
-        st.session_state.reset_email = ""
-    if 'reset_code' not in st.session_state:
-        st.session_state.reset_code = ""
     
     st.markdown("""
     <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #4a6fa5, #166088); border-radius: 20px; margin-bottom: 2rem;">
         <h1 style="color: white; font-size: 2rem;">🔐 Mot de passe oublié</h1>
-        <p style="color: rgba(255,255,255,0.9);">Réinitialisez votre mot de passe en 3 étapes</p>
+        <p style="color: rgba(255,255,255,0.9);">Réinitialisez votre mot de passe en 3 étapes simples</p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Indicateur de progression
-    step = st.session_state.reset_step
-    steps_html = f"""
-    <div class="reset-container">
-        <div class="step-indicator">
-            <div class="step">
-                <div class="circle {'active' if step == 1 else 'completed' if step > 1 else ''}">1</div>
-                <div class="label {'active' if step == 1 else ''}">Email</div>
-            </div>
-            <div class="step">
-                <div class="circle {'active' if step == 2 else 'completed' if step > 2 else ''}">2</div>
-                <div class="label {'active' if step == 2 else ''}">Code</div>
-            </div>
-            <div class="step">
-                <div class="circle {'active' if step == 3 else ''}">3</div>
-                <div class="label {'active' if step == 3 else ''}">Nouveau MDP</div>
-            </div>
-        </div>
-    </div>
-    """
-    st.markdown(steps_html, unsafe_allow_html=True)
+    # Initialisation de l'état
+    if 'reset_step' not in st.session_state:
+        st.session_state.reset_step = 1
+    if 'reset_email' not in st.session_state:
+        st.session_state.reset_email = ""
+    if 'reset_password_updated' not in st.session_state:
+        st.session_state.reset_password_updated = False
     
-    # Bouton Retour (en dehors des étapes)
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if st.button("⬅️ Retour à la connexion", use_container_width=True):
-            st.session_state.show_forgot_password = False
-            st.session_state.reset_step = 1
-            st.session_state.reset_email = ""
-            st.session_state.reset_code = ""
-            st.rerun()
+    # Barre de progression
+    steps = ["📧 Email", "🔑 Nouveau mot de passe", "✅ Confirmation"]
+    current_step = st.session_state.reset_step
     
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.progress(current_step / 3)
+    st.markdown(f"**Étape {current_step}/3 : {steps[current_step-1]}**")
+    st.markdown("---")
     
-    # Étape 1 : Saisie de l'email
-    if st.session_state.reset_step == 1:
-        st.markdown("""
-        <div style="background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto;">
-            <h3 style="text-align: center; color: #4a6fa5;">📧 Saisissez votre email</h3>
-            <p style="text-align: center; color: #666;">Nous vous enverrons un code de réinitialisation</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        with st.form("reset_email_form"):
-            email = st.text_input("Email", placeholder="exemple@email.com", value=st.session_state.reset_email)
+    # ÉTAPE 1 : Vérification de l'email
+    if current_step == 1:
+        with st.container():
+            st.markdown("### 📧 Étape 1 : Vérification de votre email")
+            st.markdown("Entrez l'email associé à votre compte pour réinitialiser votre mot de passe.")
             
-            if st.form_submit_button("📧 Envoyer le code", use_container_width=True):
-                if email and re.match(r"[^@]+@[^@]+\.[^@]+", email):
-                    success, result = db.generate_reset_code(email)
-                    if success:
-                        st.session_state.reset_email = email
-                        st.session_state.reset_step = 2
-                        st.success(f"✅ Un code a été envoyé à {email}")
-                        st.rerun()
+            with st.form("reset_email_form"):
+                email = st.text_input(
+                    "Adresse email",
+                    placeholder="exemple@email.com",
+                    value=st.session_state.reset_email
+                )
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    submit_email = st.form_submit_button("Vérifier l'email", use_container_width=True)
+                with col2:
+                    back_to_login = st.form_submit_button("⬅️ Retour à la connexion", use_container_width=True)
+                
+                if back_to_login:
+                    # Réinitialiser l'état et retourner à la connexion
+                    st.session_state.reset_step = 1
+                    st.session_state.reset_email = ""
+                    st.session_state.reset_password_updated = False
+                    st.session_state.show_forgot_password = False
+                    st.rerun()
+                
+                if submit_email:
+                    if not email or '@' not in email:
+                        st.error("⚠️ Veuillez entrer une adresse email valide")
                     else:
-                        st.error(f"❌ {result}")
-                else:
-                    st.error("Veuillez saisir une adresse email valide")
+                        # Vérifier si l'email existe
+                        user = db.get_user_by_email(email)
+                        if user:
+                            st.session_state.reset_email = email
+                            st.session_state.reset_step = 2
+                            st.success(f"✅ Email vérifié ! {user['first_name']}, vous pouvez maintenant changer votre mot de passe.")
+                            st.rerun()
+                        else:
+                            st.error("❌ Aucun compte trouvé avec cet email. Veuillez vérifier votre saisie.")
     
-    # Étape 2 : Vérification du code
-    elif st.session_state.reset_step == 2:
-        st.markdown(f"""
-        <div style="background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto;">
-            <h3 style="text-align: center; color: #4a6fa5;">🔑 Vérification du code</h3>
-            <p style="text-align: center; color: #666;">Un code à 6 chiffres a été envoyé à <strong>{st.session_state.reset_email}</strong></p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        with st.form("reset_code_form"):
-            code = st.text_input("Code de confirmation", placeholder="000000", max_chars=6)
+    # ÉTAPE 2 : Nouveau mot de passe
+    elif current_step == 2:
+        with st.container():
+            st.markdown("### 🔑 Étape 2 : Définir un nouveau mot de passe")
+            st.markdown(f"**Email :** {st.session_state.reset_email}")
+            st.markdown("Choisissez un mot de passe sécurisé (minimum 8 caractères).")
+            
+            with st.form("reset_password_form"):
+                new_password = st.text_input(
+                    "Nouveau mot de passe",
+                    type="password",
+                    placeholder="Minimum 8 caractères",
+                    help="Utilisez une combinaison de lettres, chiffres et symboles"
+                )
+                confirm_password = st.text_input(
+                    "Confirmer le nouveau mot de passe",
+                    type="password",
+                    placeholder="Retapez votre nouveau mot de passe"
+                )
+                
+                # Critères de sécurité
+                st.markdown("**Critères de sécurité :**")
+                col1, col2 = st.columns(2)
+                with col1:
+                    if len(new_password) >= 8:
+                        st.success("✅ 8 caractères minimum")
+                    else:
+                        st.warning("⚠️ 8 caractères minimum")
+                    
+                    if any(c.isdigit() for c in new_password):
+                        st.success("✅ Au moins un chiffre")
+                    else:
+                        st.warning("⚠️ Au moins un chiffre")
+                
+                with col2:
+                    if any(c.isupper() for c in new_password):
+                        st.success("✅ Au moins une majuscule")
+                    else:
+                        st.warning("⚠️ Au moins une majuscule")
+                    
+                    if any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in new_password):
+                        st.success("✅ Au moins un caractère spécial")
+                    else:
+                        st.warning("⚠️ Au moins un caractère spécial")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    submit_password = st.form_submit_button("🔄 Changer le mot de passe", use_container_width=True)
+                with col2:
+                    back_to_step1 = st.form_submit_button("⬅️ Retour", use_container_width=True)
+                
+                if back_to_step1:
+                    st.session_state.reset_step = 1
+                    st.rerun()
+                
+                if submit_password:
+                    # Validation du mot de passe
+                    errors = []
+                    
+                    if len(new_password) < 8:
+                        errors.append("Le mot de passe doit contenir au moins 8 caractères")
+                    
+                    if new_password != confirm_password:
+                        errors.append("Les mots de passe ne correspondent pas")
+                    
+                    if new_password and confirm_password and new_password == confirm_password:
+                        if len(new_password) >= 8:
+                            # Mettre à jour le mot de passe dans la base de données
+                            success, message = db.update_password_by_email(
+                                st.session_state.reset_email,
+                                new_password
+                            )
+                            
+                            if success:
+                                st.session_state.reset_password_updated = True
+                                st.session_state.reset_step = 3
+                                st.success("✅ Mot de passe modifié avec succès !")
+                                st.rerun()
+                            else:
+                                st.error(f"❌ {message}")
+                        else:
+                            st.error("❌ Le mot de passe doit contenir au moins 8 caractères")
+                    else:
+                        if errors:
+                            for error in errors:
+                                st.error(f"❌ {error}")
+    
+    # ÉTAPE 3 : Confirmation et retour à la connexion
+    elif current_step == 3:
+        with st.container():
+            st.markdown("### ✅ Étape 3 : Confirmation")
+            
+            # Animation de succès
+            st.balloons()
+            
+            st.markdown("""
+            <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #48bb78, #38a169); border-radius: 20px; color: white;">
+                <div style="font-size: 4rem;">🔐</div>
+                <h2>Mot de passe modifié avec succès !</h2>
+                <p>Votre mot de passe a été réinitialisé. Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            st.markdown("### 📝 Récapitulatif")
             
             col1, col2 = st.columns(2)
             with col1:
-                if st.form_submit_button("🔄 Renvoyer", use_container_width=True):
-                    success, result = db.generate_reset_code(st.session_state.reset_email)
-                    if success:
-                        st.success("✅ Un nouveau code a été envoyé")
-                    else:
-                        st.error(f"❌ {result}")
+                st.markdown(f"""
+                **Email :** {st.session_state.reset_email}
+                """)
             with col2:
-                if st.form_submit_button("✅ Vérifier", use_container_width=True):
-                    if code and len(code) == 6 and code.isdigit():
-                        valid, result = db.verify_reset_code(st.session_state.reset_email, code)
-                        if valid:
-                            st.session_state.reset_code = code
-                            st.session_state.reset_step = 3
-                            st.success("✅ Code vérifié !")
-                            st.rerun()
-                        else:
-                            st.error(f"❌ {result}")
-                    else:
-                        st.error("Veuillez saisir un code à 6 chiffres")
-    
-    # Étape 3 : Nouveau mot de passe
-    elif st.session_state.reset_step == 3:
-        st.markdown(f"""
-        <div style="background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto;">
-            <h3 style="text-align: center; color: #4a6fa5;">🔐 Nouveau mot de passe</h3>
-            <p style="text-align: center; color: #666;">Créez un nouveau mot de passe pour <strong>{st.session_state.reset_email}</strong></p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        with st.form("reset_password_form"):
-            new_password = st.text_input("Nouveau mot de passe", type="password", placeholder="••••••••")
-            confirm_password = st.text_input("Confirmer le mot de passe", type="password", placeholder="••••••••")
+                st.markdown("""
+                **Statut :** ✅ Réinitialisé avec succès
+                """)
             
-            if st.form_submit_button("✅ Modifier le mot de passe", use_container_width=True):
-                if new_password and confirm_password:
-                    if len(new_password) < 6:
-                        st.error("Le mot de passe doit contenir au moins 6 caractères")
-                    elif new_password != confirm_password:
-                        st.error("Les mots de passe ne correspondent pas")
-                    else:
-                        success, result = db.reset_password(
-                            st.session_state.reset_email,
-                            st.session_state.reset_code,
-                            new_password
-                        )
-                        if success:
-                            st.success("✅ Mot de passe modifié avec succès !")
-                            st.balloons()
-                            
-                            # Réinitialiser les variables de session
-                            st.session_state.reset_step = 1
-                            st.session_state.reset_email = ""
-                            st.session_state.reset_code = ""
-                            st.session_state.show_forgot_password = False
-                            
-                            # Rediriger vers la page de connexion
-                            st.rerun()
-                        else:
-                            st.error(f"❌ {result}")
-                else:
-                    st.error("Veuillez remplir tous les champs")
+            st.markdown("---")
+            
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                if st.button("🔑 Se connecter avec mon nouveau mot de passe", use_container_width=True):
+                    # Réinitialiser l'état et retourner à la connexion
+                    st.session_state.reset_step = 1
+                    st.session_state.reset_email = ""
+                    st.session_state.reset_password_updated = False
+                    st.session_state.show_forgot_password = False
+                    st.rerun()
 
 # ============================================================
 # PAGE D'AUTHENTIFICATION
 # ============================================================
 def auth_page():
     set_custom_theme()
-    
-    # Vérifier si on doit afficher la page de réinitialisation
-    if st.session_state.get('show_forgot_password', False):
-        forgot_password_page()
-        return
     
     lottie_banking = load_lottieurl("https://assets5.lottiefiles.com/packages/lf20_xyadoh9h.json")
     
@@ -1078,14 +1045,11 @@ def auth_page():
         tab1, tab2 = st.tabs(["Connexion", "Inscription"])
         
         with tab1:
-            # Formulaire de connexion
             with st.form("login_form"):
                 email = st.text_input("Email", placeholder="exemple@email.com")
                 password = st.text_input("Mot de passe", type="password", placeholder="..........")
                 
-                submitted = st.form_submit_button("Se connecter", use_container_width=True)
-                
-                if submitted:
+                if st.form_submit_button("Se connecter", use_container_width=True):
                     if email and password:
                         user = db.authenticate_user(email, password)
                         if user:
@@ -1096,21 +1060,17 @@ def auth_page():
                         else:
                             st.error("Email ou mot de passe incorrect")
             
-            # Bouton Mot de passe oublié (hors du formulaire)
-            st.markdown("---")
-            col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
-            with col_btn2:
-                if st.button("🔑 Mot de passe oublié ?", use_container_width=True, key="forgot_btn"):
+            # Ajouter le lien "Mot de passe oublié"
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                if st.button("🔐 Mot de passe oublié ?", use_container_width=True):
                     st.session_state.show_forgot_password = True
+                    st.session_state.reset_step = 1
+                    st.session_state.reset_email = ""
+                    st.session_state.reset_password_updated = False
                     st.rerun()
             
-            st.markdown("""
-            <div style="text-align: center; margin-top: 1rem;">
-                <a href="https://ecocapitale-bm.streamlit.app/" target="_blank" style="color: white; text-decoration: none;">
-                    🌐 EcoCapital
-                </a>
-            </div>
-            """, unsafe_allow_html=True)
+            st.page_link("https://ecocapitale-bm.streamlit.app/", label="EcoCapital")                     
         
         with tab2:
             with st.form("register_form"):
@@ -1173,10 +1133,10 @@ def dashboard_page():
         for req in user_requests[:5]:
             with st.container():
                 st.markdown(f"""
-                <div style="background: white; padding: 1rem; border-radius: 10px; margin-bottom: 0.5rem; border-left: 4px solid #4a6fa5;">
+                <div class="custom-card">
                     <strong>{req['id']}</strong><br>
-                    📅 {req['created_at'].strftime('%d/%m/%Y %H:%M') if req['created_at'] else 'N/A'}<br>
-                    💰 {req['request_data'].get('avi_amount', 'N/A') if req.get('request_data') else 'N/A'}<br>
+                    📅 {req['created_at'].strftime('%d/%m/%Y %H:%M')}<br>
+                    💰 {req['request_data'].get('avi_amount', 'N/A')}<br>
                     <span style="color: {'orange' if req['status'] == 'En attente' else 'green' if req['status'] == 'Validée' else 'red'}">
                         {req['status']}
                     </span>
@@ -1206,7 +1166,9 @@ def avi_request_page():
     
     st.progress(step / 3)
     
+    # Étape 1
     if step == 1:
+        st.markdown('<div class="card-premium animate-fadeInLeft">', unsafe_allow_html=True)
         st.markdown("### 📝 Informations Personnelles")
         
         with st.form(key="avi_form_step1"):
@@ -1280,6 +1242,7 @@ def avi_request_page():
                     st.session_state.avi_step = 2
                     st.rerun()
     
+    # Étape 2
     elif step == 2:
         with st.container():
             st.markdown("### 📎 Pièces Justificatives")
@@ -1313,6 +1276,7 @@ def avi_request_page():
                     else:
                         st.error("Veuillez remplir tous les champs")
     
+    # Étape 3
     elif step == 3:
         with st.container():
             st.markdown("### ✅ Validation Finale")
@@ -1364,15 +1328,20 @@ def avi_request_page():
                         st.error("⚠️ Veuillez confirmer les informations")
 
 # ============================================================
-# PAGE MES AVI (VERSION SIMPLIFIÉE)
+# PAGE MES AVI (DESIGN AMÉLIORÉ) - VERSION COMPLÈTE
 # ============================================================
 def my_avi_page():
     set_custom_theme()
     
     st.markdown("""
-    <div style="margin-bottom: 2rem;">
-        <h2>📋 Mes Demandes d'AVI</h2>
-        <p>Historique complet de vos attestations</p>
+    <div class="animate-fadeInDown" style="margin-bottom: 2rem;">
+        <h2 style="font-weight: 800; background: linear-gradient(135deg, #667eea, #764ba2); 
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            📋 Mes Demandes d'AVI
+        </h2>
+        <p style="color: #718096; font-weight: 300;">
+            Historique complet de vos attestations
+        </p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1386,26 +1355,334 @@ def my_avi_page():
             st.session_state.menu = "Demande AVI"
             st.rerun()
     else:
-        for req in user_requests:
+        for i, req in enumerate(user_requests):
+            status_color = {'En attente': '#ed8936', 'Validée': '#48bb78', 'Rejetée': '#f56565'}.get(req['status'], '#a0aec0')
             status_emoji = {'En attente': '⏳', 'Validée': '✅', 'Rejetée': '❌'}.get(req['status'], '📋')
             
-            with st.expander(f"{status_emoji} {req['id']} - {req['created_at'].strftime('%d/%m/%Y') if req['created_at'] else 'N/A'}"):
+            with st.expander(f"{status_emoji} {req['id']} - {req['created_at'].strftime('%d/%m/%Y')}"):
                 st.markdown(f"""
                 **Statut:** {req['status']}
-                **Date:** {req['created_at'].strftime('%d/%m/%Y %H:%M') if req['created_at'] else 'N/A'}
-                **Montant:** {req['request_data'].get('avi_amount', 'N/A') if req.get('request_data') else 'N/A'}
+                **Date:** {req['created_at'].strftime('%d/%m/%Y %H:%M')}
+                **Montant:** {req['request_data'].get('avi_amount', 'N/A')}
                 """)
+                
+                if req['status'] == 'Validée' and req.get('request_data', {}).get('avi_amount'):
+                    col1, col2, col3 = st.columns([1, 2, 1])
+                    with col2:
+                        st.info("✅ Votre demande a été validée. Vous recevrez votre attestation sous 48h.")
+    
+    st.markdown("---")
+    st.markdown("### 📄 Attestations AVI Générées")
+
+    user_avis = db.get_user_avis(st.session_state.user['id'])
+
+    if not user_avis:
+        st.info("📭 Aucune attestation AVI n'a encore été générée pour vous")
+    else:
+        def montant_en_lettres(montant):
+            try:
+                partie_entiere = int(montant)
+                partie_decimale = int(round((montant - partie_entiere) * 100))
+                texte = num2words(partie_entiere, lang='fr')
+                if partie_entiere > 1:
+                    texte += " francs CFA"
+                else:
+                    texte += " franc CFA"
+                if partie_decimale > 0:
+                    texte += " et " + num2words(partie_decimale, lang='fr') + " centimes"
+                return texte.capitalize()
+            except:
+                return f"{montant:,.2f} francs CFA"
+        
+        def generate_avi_pdf(avi_data):
+            try:
+                pdf = FPDF()
+                pdf.add_page()
+                
+                # Logos en arrière-plan
+                try:
+                    logo_path = "assets/logo.png"
+                    if os.path.exists(logo_path):
+                        img = Image.open(logo_path)
+                        if img.mode != 'RGBA':
+                            img = img.convert('RGBA')
+                        data = img.getdata()
+                        new_data = []
+                        for item in data:
+                            new_data.append((item[0], item[1], item[2], int(item[3] * 0.2)))
+                        img.putdata(new_data)
+                        temp_logo = BytesIO()
+                        img.save(temp_logo, format='PNG')
+                        temp_logo.seek(0)
+                        for position in [(30, 30), (120, 200), (50, 300), (100, 100)]:
+                            pdf.image(temp_logo, x=position[0], y=position[1], w=100)
+                except:
+                    pass
+                
+                # En-tête
+                pdf.set_font('Arial', 'B', 16)
+                pdf.cell(0, 30, 'ATTESTATION DE VIREMENT IRREVOCABLE', 0, 1, 'C')
+                
+                pdf.set_font('Arial', 'B', 10)
+                pdf.cell(0, 0, f"DGF/EC-{avi_data.get('reference', 'N/A')}", 0, 1, 'C')
+                pdf.ln(10)
+                
+                try:
+                    if os.path.exists("assets/logo.png"):
+                        pdf.image("assets/logo.png", x=10, y=10, w=30)
+                except:
+                    pass
+                
+                pdf.set_font('Arial', '', 12)
+                intro = [
+                    "Nous soussignés, Eco Capital (E.C), établissement de microfinance agréé pour exercer des",
+                    "activités bancaires en République du Congo conformément au décret n°7236/MEFB-CAB du",
+                    "15 novembre 2007, après avis conforme de la COBAC D-2007/2018, déclarons avoir notre",
+                    "siège au n°1636 Boulevard Denis Sassou Nguesso, Batignol Brazzaville.",
+                    "",
+                    "Représenté par son Directeur Général, Monsieur ILOKO Charmant.",
+                    "",
+                    f"Nous certifions par la présente que Monsieur/Madame {avi_data.get('nom_complet', 'N/A')}",
+                    "détient un compte courant enregistré dans nos livres avec les caractéristiques suivantes :",
+                    ""
+                ]
+                
+                for line in intro:
+                    pdf.cell(0, 5, line, 0, 1)
+                
+                pdf.set_font('Arial', 'B', 12)
+                pdf.cell(40, 5, "CODE BANQUE :", 0, 0)
+                pdf.set_font('Arial', '', 12)
+                pdf.cell(0, 5, avi_data.get('code_banque', 'N/A'), 0, 1)
+                
+                pdf.set_font('Arial', 'B', 12)
+                pdf.cell(45, 5, "NUMERO COMPTE : ", 0, 0)
+                pdf.set_font('Arial', '', 12)
+                pdf.cell(0, 5, avi_data.get('numero_compte', 'N/A'), 0, 1)
+                
+                pdf.set_font('Arial', 'B', 12)
+                pdf.cell(20, 5, "Devise :", 0, 0)
+                pdf.set_font('Arial', '', 12)
+                pdf.cell(0, 5, avi_data.get('devise', 'XAF'), 0, 1)
+                pdf.ln(5)
+                
+                montant = avi_data.get('montant', 0)
+                try:
+                    montant_float = float(montant) if montant else 0
+                except:
+                    montant_float = 0
+                
+                details = [
+                    f"Il est l'ordonnateur d'un virement irrévocable et permanent d'un montant total de {montant_float:,.2f} FCFA",
+                    f"({montant_en_lettres(montant_float)}), équivalant actuellement à {montant_float/650:,.2f} euros,",
+                    "destiné à couvrir les frais liés à ses études en France.",
+                    "",
+                    "Il est précisé que ce compte demeurera bloqué jusqu'à la présentation, par le donneur",
+                    "d'ordre, de ses nouvelles coordonnées bancaires ouvertes en France.",
+                    "",
+                    "À défaut, les fonds ne pourront être remis à sa disposition qu'après présentation de son",
+                    "passeport attestant d'un refus de visa. Toutefois, nous autorisons le donneur d'ordre, à",
+                    "toutes fins utiles, à utiliser notre compte ouvert auprès de United Bank for Africa (UBA).",
+                    ""
+                ]
+                
+                for line in details:
+                    pdf.cell(0, 5, line, 0, 1)
+                
+                pdf.set_font('Arial', 'B', 12)
+                pdf.cell(16, 5, "IBAN :", 0, 0)
+                pdf.set_font('Arial', '', 12)
+                pdf.cell(0, 5, avi_data.get('iban', 'N/A'), 0, 1)
+                
+                pdf.set_font('Arial', 'B', 12)
+                pdf.cell(16, 5, "BIC :", 0, 0)
+                pdf.set_font('Arial', '', 12)
+                pdf.cell(0, 5, avi_data.get('bic', 'N/A'), 0, 1)
+                pdf.ln(10)
+                
+                pdf.cell(0, 5, "En foi de quoi, cette attestation lui est délivrée pour servir et valoir ce que de droit.", 0, 1)
+                pdf.ln(10)
+                
+                date_val = avi_data.get('date_creation')
+                if date_val:
+                    if hasattr(date_val, 'strftime'):
+                        date_str = date_val.strftime('%d %B %Y')
+                    else:
+                        date_str = str(date_val)
+                else:
+                    date_str = datetime.now().strftime('%d %B %Y')
+                
+                pdf.cell(0, 5, f"Fait à Brazzaville, le {date_str}", 0, 1, 'R')
+                pdf.ln(5)
+                
+                pdf.cell(0, 5, "Rubain MOUNGALA", 0, 1)
+                pdf.set_font('Arial', 'B', 12)
+                pdf.cell(0, 5, "Directeur de la Gestion Financière", 0, 1)
+                pdf.ln(15)
+                
+                footer = [
+                    "Eco capital Sarl",
+                    "Société a responsabilité limité au capital de 60.000.000 XAF",
+                    "Siège social : 1636 Boulevard Denis Sassou Nguesso Brazzaville",
+                    "Contact: 00242 06 931 31 06 /04 001 79 40",
+                    "Web : www.ecocapitale.com mail : contacts@ecocapitale.com",
+                    "RCCM N°CG/BZV/B12-00320NIU N°M24000000665934H",
+                    "Brazzaville République du Congo"
+                ]
+                
+                pdf.set_font('Arial', 'I', 10)
+                for line in footer:
+                    pdf.cell(1, 4.5, line, 0, 1, 'L')
+                
+                try:
+                    qr_data = {
+                        "Référence": avi_data.get('reference', 'N/A'),
+                        "Nom": avi_data.get('nom_complet', 'N/A'),
+                        "Code Banque": avi_data.get('code_banque', 'N/A'),
+                        "Numéro Compte": avi_data.get('numero_compte', 'N/A'),
+                        "BIC": avi_data.get('bic', 'N/A'),
+                        "Montant": f"{montant_float:,.2f} FCFA",
+                        "Date Création": date_str
+                    }
+                    
+                    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=3, border=2)
+                    qr.add_data(str(qr_data))
+                    qr.make(fit=True)
+                    img = qr.make_image(fill_color="black", back_color="white")
+                    img_bytes = BytesIO()
+                    img.save(img_bytes, format='PNG')
+                    img_bytes.seek(0)
+                    pdf.image(img_bytes, x=150, y=pdf.get_y() - 40, w=40)
+                except:
+                    pass
+                
+                try:
+                    output = pdf.output()
+                    if isinstance(output, str):
+                        output = output.encode('latin1')
+                except TypeError:
+                    output = pdf.output(dest='S')
+                    if isinstance(output, str):
+                        output = output.encode('latin1')
+                
+                return output
+                    
+            except Exception as e:
+                print(f"Erreur generate_avi_pdf: {e}")
+                return None
+        
+        for i, avi in enumerate(user_avis):
+            reference = avi.get('reference', 'N/A') if avi.get('reference') else f'AVI_{i+1}'
+            nom_complet = avi.get('nom_complet', 'Bénéficiaire non spécifié')
+            
+            try:
+                montant_val = float(avi.get('montant', 0)) if avi.get('montant') else 0
+                montant_display = f"{montant_val:,.2f} FCFA"
+            except (ValueError, TypeError):
+                montant_display = f"{avi.get('montant', 0)} FCFA"
+            
+            with st.expander(f"📄 {reference} - {nom_complet} - {montant_display}"):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown(f"""
+                    **👤 Informations du bénéficiaire:**
+                    - Nom complet: **{avi.get('nom_complet', 'N/A')}**
+                    - Code Banque: **{avi.get('code_banque', 'N/A')}**
+                    - Numéro de compte: **{avi.get('numero_compte', 'N/A')}**
+                    - Devise: **{avi.get('devise', 'XAF')}**
+                    """)
+                
+                with col2:
+                    st.markdown(f"""
+                    **📄 Détails de l'attestation:**
+                    - Référence: **{reference}**
+                    - IBAN: **{avi.get('iban', 'N/A')}**
+                    - BIC: **{avi.get('bic', 'N/A')}**
+                    - Montant: **{montant_display}**
+                    - Statut: **{avi.get('statut', 'N/A')}**
+                    - Date d'émission: **{avi.get('date_creation').strftime('%d/%m/%Y') if avi.get('date_creation') else 'Date inconnue'}**
+                    """)
+                
+                if avi.get('commentaires'):
+                    st.markdown(f"**📝 Commentaires:** {avi.get('commentaires')}")
+                
+                st.markdown("---")
+                
+                try:
+                    pdf_bytes = generate_avi_pdf(avi)
+                    if pdf_bytes:
+                        col1, col2, col3 = st.columns([1, 2, 1])
+                        with col2:
+                            st.download_button(
+                                label=f"📥 Télécharger l'attestation {reference}",
+                                data=pdf_bytes,
+                                file_name=f"AVI_{reference}.pdf",
+                                mime="application/pdf",
+                                use_container_width=True,
+                                key=f"download_{reference}_{i}"
+                            )
+                    else:
+                        st.error(f"Impossible de générer le PDF pour {reference}")
+                except Exception as e:
+                    st.error(f"Erreur lors de la génération du PDF: {str(e)}")
 
 # ============================================================
-# PAGE MESSAGES (VERSION SIMPLIFIÉE)
+# PAGE MESSAGES (DESIGN AMÉLIORÉ)
 # ============================================================
 def messages_page():
     set_custom_theme()
     
     st.markdown("""
-    <div style="margin-bottom: 2rem;">
-        <h2>💬 Centre de Messages</h2>
-        <p>Communiquez directement avec notre équipe support</p>
+    <style>
+    .message-sent-premium {
+        background: linear-gradient(135deg, #4a6fa5, #166088);
+        color: white;
+        padding: 1rem;
+        border-radius: 15px 15px 5px 15px;
+        margin: 0.5rem 0;
+        max-width: 80%;
+        margin-left: auto;
+    }
+    
+    .message-received-premium {
+        background: #f0f0f0;
+        color: #333;
+        padding: 1rem;
+        border-radius: 15px 15px 15px 5px;
+        margin: 0.5rem 0;
+        max-width: 80%;
+    }
+    
+    .attachment-preview {
+        margin-top: 0.5rem;
+        padding: 0.5rem;
+        background: rgba(0,0,0,0.05);
+        border-radius: 8px;
+        display: inline-block;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+        .message-received-premium {
+            background: #2d2d44;
+            color: #f0f2f6;
+        }
+        .attachment-preview {
+            background: rgba(255,255,255,0.1);
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="animate-fadeInDown" style="margin-bottom: 2rem;">
+        <h2 style="font-weight: 800; background: linear-gradient(135deg, #667eea, #764ba2); 
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            💬 Centre de Messages
+        </h2>
+        <p style="color: #718096; font-weight: 300;">
+            Communiquez directement avec notre équipe support et partagez des documents
+        </p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1413,56 +1690,180 @@ def messages_page():
     
     with col1:
         st.markdown("### 📋 Conversations")
-        st.info("💬 Support Technique")
-        st.info("💬 Service AVI")
+        
+        conversations = db.get_user_conversations(st.session_state.user['id'])
+        
+        if not conversations or all(conv is None for conv in conversations):
+            default_conversations = ["Support Technique", "Service AVI", "Comptabilité"]
+            for name in default_conversations:
+                db.create_conversation(st.session_state.user['id'], name)
+            conversations = db.get_user_conversations(st.session_state.user['id'])
+        
+        valid_conversations = []
+        for conv in conversations:
+            if conv is not None and isinstance(conv, dict):
+                if 'name' in conv:
+                    valid_conversations.append(conv)
+                else:
+                    conv['name'] = f"Conversation {conv.get('id', '')[:8]}"
+                    conv['last_message'] = conv.get('last_message', 'Nouvelle conversation')
+                    conv['unread_count'] = conv.get('unread_count', 0)
+                    valid_conversations.append(conv)
+        
+        if valid_conversations:
+            for conv in valid_conversations:
+                conv_name = conv.get('name', 'Conversation')
+                conv_last_message = conv.get('last_message', 'Nouvelle conversation')
+                conv_unread_count = conv.get('unread_count', 0)
+                
+                if conv_last_message is None:
+                    conv_last_message = 'Nouvelle conversation'
+                elif not isinstance(conv_last_message, str):
+                    conv_last_message = str(conv_last_message)
+                
+                last_message_preview = conv_last_message[:50] if len(conv_last_message) > 50 else conv_last_message
+                badge = f'<span style="background: #ef4444; color: white; border-radius: 50%; padding: 0.2rem 0.5rem; font-size: 0.7rem;">{conv_unread_count}</span>' if conv_unread_count > 0 else ""
+                
+                st.markdown(f"""
+                <div style="padding: 1rem; margin-bottom: 0.5rem; border-radius: 12px; background: white;">
+                    <strong>{conv_name}</strong> {badge}
+                    <br>
+                    <small style="color: #718096;">{last_message_preview}...</small>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("💬 Aucune conversation disponible")
     
     with col2:
         st.markdown("### 💭 Support Technique")
         
-        user_messages = db.get_user_messages(st.session_state.user['id'])
+        user_messages = db.get_user_messages_with_attachments(st.session_state.user['id'])
         
         if user_messages:
             for msg in user_messages:
-                sender = msg.get('sender', 'user')
-                content = msg.get('content', 'Message vide')
-                timestamp = msg.get('timestamp', datetime.now())
-                timestamp_str = timestamp.strftime('%d/%m %H:%M') if hasattr(timestamp, 'strftime') else str(timestamp)
-                
-                if sender == 'user':
-                    st.markdown(f"""
-                    <div style="background: linear-gradient(135deg, #4a6fa5, #166088); color: white; padding: 1rem; border-radius: 15px 15px 5px 15px; margin: 0.5rem 0; max-width: 80%; margin-left: auto;">
-                        <strong>👤 Vous</strong>
-                        <p style="margin: 0.5rem 0;">{content}</p>
-                        <small style="opacity: 0.8;">📅 {timestamp_str}</small>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                    <div style="background: #f0f0f0; color: #333; padding: 1rem; border-radius: 15px 15px 15px 5px; margin: 0.5rem 0; max-width: 80%;">
-                        <strong>🏦 Support</strong>
-                        <p style="margin: 0.5rem 0;">{content}</p>
-                        <small style="opacity: 0.8;">📅 {timestamp_str}</small>
-                    </div>
-                    """, unsafe_allow_html=True)
+                if msg and isinstance(msg, dict):
+                    sender = msg.get('sender', 'user')
+                    content = msg.get('content', 'Message vide')
+                    timestamp = msg.get('timestamp', datetime.now())
+                    timestamp_str = timestamp.strftime('%d/%m %H:%M') if hasattr(timestamp, 'strftime') else str(timestamp)
+                    attachment = msg.get('attachment')
+                    attachment_filename = msg.get('attachment_filename', '')
+                    
+                    if sender == 'user':
+                        st.markdown(f"""
+                        <div class="message-sent-premium">
+                            <strong>👤 Vous</strong>
+                            <p style="margin: 0.5rem 0;">{content}</p>
+                        """, unsafe_allow_html=True)
+                        
+                        if attachment and attachment_filename:
+                            file_ext = attachment_filename.split('.')[-1].lower() if '.' in attachment_filename else ''
+                            
+                            if file_ext in ['jpg', 'jpeg', 'png', 'gif', 'webp']:
+                                try:
+                                    import base64
+                                    img_data = base64.b64encode(attachment).decode('utf-8')
+                                    st.markdown(f"""
+                                    <div class="attachment-preview">
+                                        <img src="data:image/{file_ext};base64,{img_data}" style="max-width: 200px; max-height: 150px; border-radius: 8px;">
+                                        <br>
+                                        <small>📎 {attachment_filename}</small>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                except:
+                                    st.markdown(f'<div class="attachment-preview">📎 {attachment_filename}</div>', unsafe_allow_html=True)
+                            else:
+                                st.download_button(
+                                    label=f"📎 Télécharger {attachment_filename}",
+                                    data=attachment,
+                                    file_name=attachment_filename,
+                                    mime="application/octet-stream",
+                                    key=f"download_{msg.get('id', '')}"
+                                )
+                        
+                        st.markdown(f"""
+                            <small style="opacity: 0.8;">📅 {timestamp_str}</small>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""
+                        <div class="message-received-premium">
+                            <strong>🏦 Support</strong>
+                            <p style="margin: 0.5rem 0;">{content}</p>
+                        """, unsafe_allow_html=True)
+                        
+                        if attachment and attachment_filename:
+                            file_ext = attachment_filename.split('.')[-1].lower() if '.' in attachment_filename else ''
+                            
+                            if file_ext in ['jpg', 'jpeg', 'png', 'gif', 'webp']:
+                                try:
+                                    import base64
+                                    img_data = base64.b64encode(attachment).decode('utf-8')
+                                    st.markdown(f"""
+                                    <div class="attachment-preview">
+                                        <img src="data:image/{file_ext};base64,{img_data}" style="max-width: 200px; max-height: 150px; border-radius: 8px;">
+                                        <br>
+                                        <small>📎 {attachment_filename}</small>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                except:
+                                    st.markdown(f'<div class="attachment-preview">📎 {attachment_filename}</div>', unsafe_allow_html=True)
+                            else:
+                                st.download_button(
+                                    label=f"📎 Télécharger {attachment_filename}",
+                                    data=attachment,
+                                    file_name=attachment_filename,
+                                    mime="application/octet-stream",
+                                    key=f"download_support_{msg.get('id', '')}"
+                                )
+                        
+                        st.markdown(f"""
+                            <small style="opacity: 0.8;">📅 {timestamp_str}</small>
+                        </div>
+                        """, unsafe_allow_html=True)
         else:
-            st.info("💬 Aucun message pour le moment.")
+            st.info("💬 Aucun message pour le moment. Commencez une conversation !")
         
         st.markdown("<br>", unsafe_allow_html=True)
         
         with st.form("send_msg", clear_on_submit=True):
             msg_text = st.text_area("Message", placeholder="Écrivez votre message ici...", height=80)
             
+            uploaded_file = st.file_uploader(
+                "📎 Joindre un fichier (optionnel)",
+                type=['pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'zip'],
+                help="Vous pouvez joindre des documents, images, PDF, etc."
+            )
+            
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
                 submitted = st.form_submit_button("📤 Envoyer", use_container_width=True)
             
-            if submitted and msg_text.strip():
-                success, result = db.send_message(st.session_state.user['id'], 'user', msg_text)
-                if success:
-                    st.success("Message envoyé avec succès !")
-                    st.rerun()
+            if submitted:
+                if not msg_text.strip() and not uploaded_file:
+                    st.warning("Veuillez écrire un message ou joindre un fichier.")
                 else:
-                    st.error(f"Erreur : {result}")
+                    if uploaded_file:
+                        file_bytes = uploaded_file.read()
+                        filename = uploaded_file.name
+                        file_type = uploaded_file.type
+                        
+                        success, result = db.send_message_with_attachment(
+                            st.session_state.user['id'], 
+                            'user', 
+                            msg_text if msg_text.strip() else "[Message avec pièce jointe]", 
+                            file_bytes, 
+                            filename, 
+                            file_type
+                        )
+                    else:
+                        success, result = db.send_message(st.session_state.user['id'], 'user', msg_text)
+                    
+                    if success:
+                        st.success("Message envoyé avec succès !")
+                        st.rerun()
+                    else:
+                        st.error(f"Erreur lors de l'envoi : {result}")
 
 # ============================================================
 # MAIN
@@ -1476,9 +1877,19 @@ def main():
         st.session_state.menu = "Dashboard"
     if 'show_forgot_password' not in st.session_state:
         st.session_state.show_forgot_password = False
+    if 'reset_step' not in st.session_state:
+        st.session_state.reset_step = 1
+    if 'reset_email' not in st.session_state:
+        st.session_state.reset_email = ""
+    if 'reset_password_updated' not in st.session_state:
+        st.session_state.reset_password_updated = False
 
+    # Si l'utilisateur est déconnecté, afficher la page d'authentification ou de réinitialisation
     if not st.session_state.logged_in:
-        auth_page()
+        if st.session_state.show_forgot_password:
+            forgot_password_page()
+        else:
+            auth_page()
         return
 
     set_custom_theme()
